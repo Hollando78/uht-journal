@@ -22,11 +22,12 @@ Every session follows a fixed cycle:
 | Class | Purpose |
 |---|---|
 | **INTEGRITY** | Verify AIRGen project structure and Substrate operational facts are consistent |
-| **TRACE_GAP** | Compare baselines to find gaps — untested hypotheses, unlinked results, orphaned observations |
 | **CALIBRATION** | Formulate and test a falsifiable UHT hypothesis, record both hypothesis and result with trace links |
+| **APPLICATION** | Test whether UHT produces practically useful signals that embeddings alone cannot — divergence analysis between ontological and distributional similarity |
+| **TRACE_GAP** | Compare baselines to find gaps — untested hypotheses, unlinked results, orphaned observations |
 | **CORPUS_EXPANSION** | Classify new entities in a domain, widen UHT coverage, record cross-domain observations |
 
-Task selection follows priority order: INTEGRITY (every 10 sessions or on alert), TRACE_GAP (if >24h since last run), CALIBRATION (if >48h), CORPUS_EXPANSION (default). Operators can override via Telegram.
+Task selection follows priority order: queued CALIBRATION (if hypothesis waiting), INTEGRITY (every 20 sessions or on alert), CALIBRATION (if >3h), APPLICATION (if >6h), TRACE_GAP (if >8h), CORPUS_EXPANSION (if >12h), CALIBRATION (default fallback). Operators can override via Telegram. The current research phase is **falsification** — hypothesis testing is prioritised over corpus growth.
 
 ## Architecture
 
@@ -50,7 +51,7 @@ telegram-bot/
 
 ## Dispatcher
 
-`dispatcher.sh` is called by a systemd timer (every 6 hours by default). It:
+`dispatcher.sh` is called by a systemd timer (every hour). It:
 
 - Sources `.env` for all credentials
 - Acquires a lockfile to prevent concurrent sessions
