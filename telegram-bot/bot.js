@@ -1,5 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api';
-import { execSync, exec } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -13,8 +13,9 @@ const bot = new TelegramBot(TOKEN, { polling: true });
 
 // --- Helpers ---
 
-function run(cmd, timeout = 15000) {
-  return execSync(cmd, { encoding: 'utf-8', timeout }).trim();
+function run(args, timeout = 15000) {
+  const [cmd, ...rest] = args;
+  return execFileSync(cmd, rest, { encoding: 'utf-8', timeout }).trim();
 }
 
 function reply(chatId, text) {
@@ -23,7 +24,7 @@ function reply(chatId, text) {
 
 function queryFact(predicate) {
   try {
-    const out = run(`uht-substrate facts query --predicate ${predicate}`);
+    const out = run(['uht-substrate', 'facts', 'query', '--predicate', predicate]);
     const parsed = JSON.parse(out);
     return parsed.facts || [];
   } catch {
@@ -84,7 +85,7 @@ bot.onText(/\/redirect\s+(\S+)/, (msg, match) => {
   }
 
   try {
-    run(`uht-substrate facts upsert "autonomous-loop" PENDING_DIRECTIVE "TASK:${taskClass}" --namespace CLAUDE`);
+    run(['uht-substrate', 'facts', 'upsert', 'autonomous-loop', 'PENDING_DIRECTIVE', `TASK:${taskClass}`, '--namespace', 'CLAUDE']);
     reply(msg.chat.id, `Next session will run: ${taskClass}`);
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
@@ -96,7 +97,7 @@ bot.onText(/\/reqs/, (msg) => {
   if (!isAuthorized(msg)) return;
 
   try {
-    const out = run(`airgen reqs list uht-bot uht-research --json`, 30000);
+    const out = run(['airgen', 'reqs', 'list', 'uht-bot', 'uht-research', '--json'], 30000);
     const parsed = JSON.parse(out);
     const reqs = parsed.data || parsed;
 
@@ -134,7 +135,7 @@ bot.onText(/\/expand\s+(.+)/, (msg, match) => {
 
   const domain = match[1].trim();
   try {
-    run(`uht-substrate facts store "autonomous-loop" EXPANSION_TARGET "${domain}" --namespace CLAUDE`);
+    run(['uht-substrate', 'facts', 'store', 'autonomous-loop', 'EXPANSION_TARGET', domain, '--namespace', 'CLAUDE']);
     reply(msg.chat.id, `Queued corpus expansion: ${domain}`);
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
@@ -152,8 +153,8 @@ bot.onText(/\/experiment\s+(.+)/s, (msg, match) => {
   }
 
   try {
-    run(`uht-substrate facts store "operator-directed" OPEN_HYPOTHESIS "${description.replace(/"/g, '\\"')}" --namespace CLAUDE`);
-    run(`uht-substrate facts upsert "autonomous-loop" PENDING_DIRECTIVE "TASK:CALIBRATION" --namespace CLAUDE`);
+    run(['uht-substrate', 'facts', 'store', 'operator-directed', 'OPEN_HYPOTHESIS', description, '--namespace', 'CLAUDE']);
+    run(['uht-substrate', 'facts', 'upsert', 'autonomous-loop', 'PENDING_DIRECTIVE', 'TASK:CALIBRATION', '--namespace', 'CLAUDE']);
     reply(msg.chat.id, `Experiment queued for next CALIBRATION session:\n\n${description}`);
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
@@ -165,7 +166,7 @@ bot.onText(/\/pause/, (msg) => {
   if (!isAuthorized(msg)) return;
 
   try {
-    run(`uht-substrate facts upsert "autonomous-loop" PENDING_DIRECTIVE "PAUSE" --namespace CLAUDE`);
+    run(['uht-substrate', 'facts', 'upsert', 'autonomous-loop', 'PENDING_DIRECTIVE', 'PAUSE', '--namespace', 'CLAUDE']);
     reply(msg.chat.id, 'Loop paused. Send /resume to restart.');
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
@@ -180,7 +181,7 @@ bot.onText(/\/resume/, (msg) => {
     const facts = queryFact('PENDING_DIRECTIVE');
     const pauseFact = facts.find((f) => f.object === 'PAUSE');
     if (pauseFact) {
-      run(`uht-substrate facts delete "${pauseFact.uuid}"`);
+      run(['uht-substrate', 'facts', 'delete', pauseFact.uuid]);
       reply(msg.chat.id, 'Loop resumed.');
     } else {
       reply(msg.chat.id, 'Loop is not paused.');
@@ -194,7 +195,7 @@ bot.onText(/\/resume/, (msg) => {
 bot.onText(/\/run-now/, (msg) => {
   if (!isAuthorized(msg)) return;
 
-  exec('systemctl start uht-loop.service', (err) => {
+  execFile('systemctl', ['start', 'uht-loop.service'], (err) => {
     if (err) {
       reply(msg.chat.id, `Trigger failed: ${err.message}`);
     } else {
@@ -216,7 +217,7 @@ bot.onText(/\/qc-status/, (msg) => {
 
     let pendingActions = 0;
     try {
-      const queueFacts = run(`uht-substrate facts query --predicate QC_ACTION_QUEUE --namespace QUALITY`, 15000);
+      const queueFacts = run(['uht-substrate', 'facts', 'query', '--predicate', 'QC_ACTION_QUEUE', '--namespace', 'QUALITY'], 15000);
       const parsed = JSON.parse(queueFacts);
       pendingActions = (parsed.facts || []).length;
     } catch {}
@@ -247,7 +248,7 @@ bot.onText(/\/qc-redirect\s+(\S+)/, (msg, match) => {
   }
 
   try {
-    run(`uht-substrate facts upsert "qc-bot" QC_PENDING_DIRECTIVE "TASK:${taskClass}" --namespace CLAUDE`);
+    run(['uht-substrate', 'facts', 'upsert', 'qc-bot', 'QC_PENDING_DIRECTIVE', `TASK:${taskClass}`, '--namespace', 'CLAUDE']);
     reply(msg.chat.id, `Next QC session will run: ${taskClass}`);
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
@@ -259,7 +260,7 @@ bot.onText(/\/qc-pause/, (msg) => {
   if (!isAuthorized(msg)) return;
 
   try {
-    run(`uht-substrate facts upsert "qc-bot" QC_PAUSE "true" --namespace CLAUDE`);
+    run(['uht-substrate', 'facts', 'upsert', 'qc-bot', 'QC_PAUSE', 'true', '--namespace', 'CLAUDE']);
     reply(msg.chat.id, 'QC bot paused. Send /qc-resume to restart.');
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
@@ -274,7 +275,7 @@ bot.onText(/\/qc-resume/, (msg) => {
     const facts = queryFact('QC_PAUSE');
     const pauseFact = facts.find((f) => f.object === 'true');
     if (pauseFact) {
-      run(`uht-substrate facts delete "${pauseFact.uuid}"`);
+      run(['uht-substrate', 'facts', 'delete', pauseFact.uuid]);
       reply(msg.chat.id, 'QC bot resumed.');
     } else {
       reply(msg.chat.id, 'QC bot is not paused.');
@@ -288,7 +289,7 @@ bot.onText(/\/qc-resume/, (msg) => {
 bot.onText(/\/qc-run-now/, (msg) => {
   if (!isAuthorized(msg)) return;
 
-  exec('systemctl start uht-qc.service', (err) => {
+  execFile('systemctl', ['start', 'uht-qc.service'], (err) => {
     if (err) {
       reply(msg.chat.id, `QC trigger failed: ${err.message}`);
     } else {
@@ -302,7 +303,7 @@ bot.onText(/\/qc-queue/, (msg) => {
   if (!isAuthorized(msg)) return;
 
   try {
-    const out = run(`uht-substrate facts query --predicate QC_ACTION_QUEUE --namespace QUALITY`, 15000);
+    const out = run(['uht-substrate', 'facts', 'query', '--predicate', 'QC_ACTION_QUEUE', '--namespace', 'QUALITY'], 15000);
     const parsed = JSON.parse(out);
     const actions = parsed.facts || [];
 
@@ -327,7 +328,7 @@ bot.onText(/\/qc-approve\s+all\b/i, (msg) => {
   if (!isAuthorized(msg)) return;
 
   try {
-    const out = run(`uht-substrate facts query --predicate QC_ACTION_QUEUE --namespace QUALITY`, 15000);
+    const out = run(['uht-substrate', 'facts', 'query', '--predicate', 'QC_ACTION_QUEUE', '--namespace', 'QUALITY'], 15000);
     const parsed = JSON.parse(out);
     const actions = parsed.facts || [];
 
@@ -338,8 +339,8 @@ bot.onText(/\/qc-approve\s+all\b/i, (msg) => {
 
     let approved = 0;
     for (const a of actions) {
-      run(`uht-substrate facts store "${a.subject}" QC_ACTION_APPROVED "${a.object.replace(/"/g, '\\"')}" --namespace QUALITY`);
-      run(`uht-substrate facts delete "${a.uuid}"`);
+      run(['uht-substrate', 'facts', 'store', a.subject, 'QC_ACTION_APPROVED', a.object, '--namespace', 'QUALITY']);
+      run(['uht-substrate', 'facts', 'delete', a.uuid]);
       approved++;
     }
     reply(msg.chat.id, `Approved all ${approved} actions. Will execute on next QC session.`);
@@ -354,7 +355,7 @@ bot.onText(/\/qc-approve\s+(\S+)/, (msg, match) => {
 
   const actionId = match[1];
   try {
-    const out = run(`uht-substrate facts query --predicate QC_ACTION_QUEUE --namespace QUALITY`, 15000);
+    const out = run(['uht-substrate', 'facts', 'query', '--predicate', 'QC_ACTION_QUEUE', '--namespace', 'QUALITY'], 15000);
     const parsed = JSON.parse(out);
     const action = (parsed.facts || []).find((f) => f.subject === actionId);
 
@@ -364,8 +365,8 @@ bot.onText(/\/qc-approve\s+(\S+)/, (msg, match) => {
     }
 
     // Store as approved, delete from queue
-    run(`uht-substrate facts store "${actionId}" QC_ACTION_APPROVED "${action.object.replace(/"/g, '\\"')}" --namespace QUALITY`);
-    run(`uht-substrate facts delete "${action.uuid}"`);
+    run(['uht-substrate', 'facts', 'store', actionId, 'QC_ACTION_APPROVED', action.object, '--namespace', 'QUALITY']);
+    run(['uht-substrate', 'facts', 'delete', action.uuid]);
     reply(msg.chat.id, `Approved: ${action.object}\nWill execute on next QC session.`);
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
@@ -378,7 +379,7 @@ bot.onText(/\/qc-reject\s+(\S+)/, (msg, match) => {
 
   const actionId = match[1];
   try {
-    const out = run(`uht-substrate facts query --predicate QC_ACTION_QUEUE --namespace QUALITY`, 15000);
+    const out = run(['uht-substrate', 'facts', 'query', '--predicate', 'QC_ACTION_QUEUE', '--namespace', 'QUALITY'], 15000);
     const parsed = JSON.parse(out);
     const action = (parsed.facts || []).find((f) => f.subject === actionId);
 
@@ -387,7 +388,7 @@ bot.onText(/\/qc-reject\s+(\S+)/, (msg, match) => {
       return;
     }
 
-    run(`uht-substrate facts delete "${action.uuid}"`);
+    run(['uht-substrate', 'facts', 'delete', action.uuid]);
     reply(msg.chat.id, `Rejected and removed: ${action.object}`);
   } catch (err) {
     reply(msg.chat.id, `Failed: ${err.message}`);
