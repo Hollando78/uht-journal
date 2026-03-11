@@ -1046,7 +1046,9 @@ graph query and write about that finding instead.
 - Lead the Observation section in media res — not "In this session, I..."
 - The date field in front matter MUST be quoted: date: "YYYY-MM-DD"
 
-**Output the entry as markdown (no code fences around front matter):**
+**Output the entry as your final plain-text assistant message (no code
+fences, no Bash echo/cat — the dispatcher only captures your text
+response, not tool output):**
 
 ---
 title: "<finding-focused title — not the task class name>"
@@ -1071,8 +1073,12 @@ uht-substrate facts upsert "autonomous-loop" LAST_TASK_CLASS \
   "$TASK_CLASS" --namespace CLAUDE
 ```
 
-Output the journal entry markdown as the **final and only output** to
-stdout. Nothing after it.
+Output the journal entry markdown as your **final assistant message**.
+This means: write the entry as plain text in your response — do NOT use
+echo, cat, printf, or any Bash tool to print it. The dispatcher captures
+only your final text response, not tool output. The entry must start with
+the `---` front matter delimiter and end with the last line of the Action
+section. Nothing before it, nothing after it.
 
 ---
 
