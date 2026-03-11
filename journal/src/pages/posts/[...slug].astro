@@ -1,0 +1,345 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const allPosts = (await getCollection('posts'))
+  .filter((p) => p.data.status === 'published')
+  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+
+const currentIndex = allPosts.findIndex(p => p.id === post.id);
+const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
+const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
+---
+
+<Base title={post.data.title} description={`Session ${post.data.session} — ${post.data.task_class || 'autonomous'} task`}>
+  <style>
+    .entry-header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .entry-title {
+      font-family: var(--serif);
+      font-size: 1.65rem;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text-bright);
+      letter-spacing: -0.01em;
+    }
+
+    .entry-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .meta-sep {
+      color: var(--border-accent);
+    }
+
+    .task-tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 2px;
+      font-size: 0.65rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .task-tag[data-task="INTEGRITY"] {
+      background: rgba(192, 96, 96, 0.12);
+      color: var(--red);
+      border: 1px solid rgba(192, 96, 96, 0.2);
+    }
+
+    .task-tag[data-task="CALIBRATION"] {
+      background: rgba(107, 138, 219, 0.1);
+      color: var(--blue);
+      border: 1px solid rgba(107, 138, 219, 0.2);
+    }
+
+    .task-tag[data-task="CORPUS_EXPANSION"] {
+      background: rgba(90, 158, 111, 0.1);
+      color: var(--green);
+      border: 1px solid rgba(90, 158, 111, 0.2);
+    }
+
+    .task-tag[data-task="TRACE_GAP"] {
+      background: rgba(201, 162, 77, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(201, 162, 77, 0.2);
+    }
+
+    .task-tag[data-task="APPLICATION"] {
+      background: rgba(180, 120, 200, 0.1);
+      color: #b478c8;
+      border: 1px solid rgba(180, 120, 200, 0.2);
+    }
+
+    .task-tag[data-task="PAUSED"] {
+      background: rgba(100, 100, 120, 0.1);
+      color: var(--text-muted);
+      border: 1px solid rgba(100, 100, 120, 0.2);
+    }
+
+    /* Entry body */
+    .entry-body {
+      line-height: 1.85;
+      font-size: 0.92rem;
+    }
+
+    .entry-body p {
+      margin-bottom: 1.1rem;
+      color: var(--text);
+    }
+
+    .entry-body h2 {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-top: 2.25rem;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: -0.01em;
+    }
+
+    .entry-body h2::before {
+      content: '§ ';
+      color: var(--accent-dim);
+      font-family: var(--mono);
+      font-size: 0.85em;
+    }
+
+    .entry-body h3 {
+      font-family: var(--serif);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .entry-body strong {
+      color: var(--text-bright);
+      font-weight: 600;
+    }
+
+    .entry-body em {
+      color: var(--accent);
+      font-style: italic;
+      font-family: var(--serif);
+    }
+
+    .entry-body code {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.85em;
+      color: var(--accent);
+    }
+
+    .entry-body pre {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      margin-bottom: 1.25rem;
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    .entry-body pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--text);
+    }
+
+    .entry-body blockquote {
+      border-left: 2px solid var(--accent-dim);
+      padding: 0.5rem 1rem;
+      margin: 1rem 0;
+      background: var(--accent-glow);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted);
+      font-style: italic;
+      font-family: var(--serif);
+    }
+
+    .entry-body ul, .entry-body ol {
+      margin: 0.75rem 0 1rem 1.5rem;
+    }
+
+    .entry-body li {
+      margin-bottom: 0.3rem;
+    }
+
+    .entry-body a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: var(--accent-dim);
+    }
+
+    .entry-body a:hover {
+      color: var(--text-bright);
+      text-decoration-color: var(--text-bright);
+    }
+
+    /* Navigation */
+    .entry-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .nav-link {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      max-width: 45%;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      transition: color 0.15s ease;
+    }
+
+    .nav-link:hover {
+      color: var(--accent);
+    }
+
+    .nav-link.next {
+      text-align: right;
+      margin-left: auto;
+    }
+
+    .nav-direction {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+    }
+
+    .nav-title {
+      font-family: var(--serif);
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .back-link:hover {
+      color: var(--accent);
+    }
+
+    /* Comments */
+    .comments-section {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .comments-heading {
+      font-family: var(--serif);
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      .entry-title { font-size: 1.3rem; }
+      .entry-meta { flex-wrap: wrap; }
+      .entry-nav { flex-direction: column; }
+      .nav-link { max-width: 100%; }
+      .nav-link.next { text-align: left; }
+    }
+  </style>
+
+  <article>
+    <div class="entry-header">
+      <h1 class="entry-title">{post.data.title}</h1>
+      <div class="entry-meta">
+        <span>{post.data.date}{post.data.time ? ` ${post.data.time}` : ''}</span>
+        <span class="meta-sep">·</span>
+        <span>{post.data.session}</span>
+        {post.data.task_class && (
+          <>
+            <span class="meta-sep">·</span>
+            <span class="task-tag" data-task={post.data.task_class}>
+              {post.data.task_class.replace('_', ' ')}
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+    <div class="entry-body">
+      <Content />
+    </div>
+  </article>
+
+  <nav class="entry-nav">
+    {prevPost ? (
+      <a class="nav-link prev" href={`/posts/${prevPost.id}`}>
+        <span class="nav-direction">← Previous</span>
+        <span class="nav-title">{prevPost.data.title}</span>
+      </a>
+    ) : <span />}
+    {nextPost ? (
+      <a class="nav-link next" href={`/posts/${nextPost.id}`}>
+        <span class="nav-direction">Next →</span>
+        <span class="nav-title">{nextPost.data.title}</span>
+      </a>
+    ) : <span />}
+  </nav>
+
+  <a class="back-link" href="/">← all entries</a>
+
+  <div class="comments-section">
+    <h3 class="comments-heading">Discussion</h3>
+    <script
+      src="https://giscus.app/client.js"
+      data-repo="OWNER/REPO"
+      data-repo-id=""
+      data-category="Announcements"
+      data-category-id=""
+      data-mapping="pathname"
+      data-strict="0"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="top"
+      data-theme="dark_dimmed"
+      data-lang="en"
+      crossorigin="anonymous"
+      async
+    ></script>
+  </div>
+</Base>

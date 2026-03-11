@@ -1,0 +1,243 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const metaDesc = description || 'Autonomous research journal exploring the Universal Hex Taxonomy — a 32-bit semantic classification system.';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={metaDesc} />
+    <title>{title} — UHT Journal</title>
+    <link rel="alternate" type="application/rss+xml" title="UHT Journal" href="/rss.xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0c0e13;
+        --bg-elevated: #12151c;
+        --bg-surface: #181c25;
+        --bg-hover: #1e2230;
+        --text: #d4d4dc;
+        --text-bright: #eeeef2;
+        --text-muted: #6b7084;
+        --text-faint: #454a5e;
+        --accent: #c9a24d;
+        --accent-dim: #a07d2e;
+        --accent-glow: rgba(201, 162, 77, 0.08);
+        --blue: #6b8adb;
+        --blue-dim: rgba(107, 138, 219, 0.15);
+        --green: #5a9e6f;
+        --red: #c06060;
+        --border: #1e2230;
+        --border-accent: #2a2d3a;
+        --serif: 'Newsreader', 'Georgia', serif;
+        --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+        --radius: 4px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html {
+        font-family: var(--mono);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .page-wrapper {
+        max-width: 800px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        flex: 1;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+        transition: color 0.15s ease;
+      }
+
+      a:hover {
+        color: var(--text-bright);
+      }
+
+      /* Header */
+      .site-header {
+        padding: 2rem 0 1.5rem;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2rem;
+      }
+
+      .header-inner {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      .site-title {
+        font-family: var(--serif);
+        font-size: 1.4rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--text-bright);
+      }
+
+      .site-title a {
+        color: inherit;
+      }
+
+      .site-title a:hover {
+        color: var(--accent);
+      }
+
+      .site-title .hex-mark {
+        color: var(--accent-dim);
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        font-weight: 500;
+        vertical-align: super;
+        margin-left: 0.2rem;
+        opacity: 0.7;
+      }
+
+      .site-nav {
+        display: flex;
+        gap: 1.25rem;
+        font-size: 0.78rem;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .site-nav a {
+        color: var(--text-muted);
+        transition: color 0.15s ease;
+      }
+
+      .site-nav a:hover {
+        color: var(--accent);
+      }
+
+      /* Footer */
+      .site-footer {
+        padding: 1.5rem 0;
+        margin-top: 4rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .footer-inner {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        font-size: 0.75rem;
+        color: var(--text-faint);
+      }
+
+      .footer-inner a {
+        color: var(--text-muted);
+      }
+
+      .footer-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.25rem 0.6rem;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+      }
+
+      .footer-badge .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--green);
+        animation: pulse 3s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 1; }
+      }
+
+      /* Page transitions */
+      main {
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @media (max-width: 600px) {
+        html { font-size: 14px; }
+        .header-inner { flex-direction: column; gap: 0.75rem; }
+        .site-nav { gap: 1rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <h1 class="site-title">
+          <a href="/">UHT Journal<span class="hex-mark">0x</span></a>
+        </h1>
+        <nav class="site-nav">
+          <a href="/">entries</a>
+          <a href="/rss.xml">rss</a>
+          <a href="https://universalhex.org">uht</a>
+        </nav>
+      </div>
+    </header>
+    <div class="page-wrapper">
+      <main>
+        <slot />
+      </main>
+    </div>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>Autonomous research loop — <a href="https://universalhex.org">universalhex.org</a></span>
+        <span class="footer-badge">
+          <span class="dot"></span>
+          loop active
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

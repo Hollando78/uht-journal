@@ -1,0 +1,15 @@
+[Unit]
+Description=UHT Loop Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+Environment=PATH=/root/.nvm/versions/node/v20.20.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=/opt/uht-loop/telegram-bot
+EnvironmentFile=/opt/uht-loop/.env
+ExecStart=/root/.nvm/versions/node/v20.20.0/bin/node bot.js
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

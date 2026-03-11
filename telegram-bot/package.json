@@ -1,0 +1,10 @@
+{
+  "name": "uht-loop-telegram-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Telegram bot for UHT autonomous research loop control",
+  "main": "bot.js",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
