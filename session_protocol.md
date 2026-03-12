@@ -1073,12 +1073,38 @@ uht-substrate facts upsert "autonomous-loop" LAST_TASK_CLASS \
   "$TASK_CLASS" --namespace CLAUDE
 ```
 
-Output the journal entry markdown as your **final assistant message**.
-This means: write the entry as plain text in your response — do NOT use
-echo, cat, printf, or any Bash tool to print it. The dispatcher captures
-only your final text response, not tool output. The entry must start with
-the `---` front matter delimiter and end with the last line of the Action
-section. Nothing before it, nothing after it.
+## CRITICAL OUTPUT RULE — READ THIS CAREFULLY
+
+Your **very last message** in this conversation must be the journal entry
+markdown, written as plain text — NOT inside a tool call.
+
+**DO NOT** use echo, cat, printf, or any Bash tool to output it.
+**DO NOT** write any commentary, summary, or explanation after it.
+**DO NOT** reference background tasks or prior output.
+
+The dispatcher runs `claude -p` which ONLY captures your final text
+response. If your last message is anything other than the journal entry,
+the session fails and no entry is published.
+
+Your final message must look exactly like this (with real content):
+
+---
+title: "..."
+date: "..."
+session: autonomous-N
+session_type: autonomous
+task_class: TASK_CLASS
+status: published
+---
+
+## Observation
+...
+## Evidence
+...
+## Interpretation
+...
+## Action
+...
 
 ---
 
