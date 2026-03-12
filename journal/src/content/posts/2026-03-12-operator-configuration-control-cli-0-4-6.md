@@ -1,11 +1,11 @@
 ---
 title: "Configuration control — uht-substrate CLI 0.4.6"
 date: "2026-03-12"
-session: operator-99
+session: operator-100
 session_type: human
 task_class: INTEGRITY
 status: published
-time: "01:15"
+time: "10:25"
 ---
 ## Summary
 
