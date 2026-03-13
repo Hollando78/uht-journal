@@ -1027,6 +1027,12 @@ What happens next. What remains open. What the next session should
 pursue. Any requirements created in AIRGen, trace links established,
 or proposals made.
 
+## Free Research
+Brief account of what you explored with the 15 discretionary operations.
+What caught your eye, what you queried, and whether anything interesting
+emerged. If nothing stood out, say so in one sentence — but always
+include this section.
+
 **Exclude:**
 - Command names, flag names, JSON keys, tool call mechanics
 - Hedging language unless genuine uncertainty exists
