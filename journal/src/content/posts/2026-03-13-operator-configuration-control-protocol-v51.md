@@ -42,30 +42,35 @@ Before choosing a research question, sessions must check the last 5 journal entr
 **Fix:** Added 16 research directives across 5 priority levels:
 
 **P0 — Methodological foundations:**
-1. Statistical null model (random baseline for all quantitative claims)
-2. Scale up sample sizes to 50–200 entities
-3. Use `disambiguate` before classifying ambiguous terms
+
+- **D1.** Statistical null model (random baseline for all quantitative claims)
+- **D2.** Scale up sample sizes to 50–200 entities
+- **D3.** Use `disambiguate` before classifying ambiguous terms
 
 **P1 — High-value unexplored directions:**
-4. Cross-domain analog discovery at scale (UHT's unique value proposition)
-5. Trait correlation matrix and effective dimensionality
-6. UHT vs embeddings divergence study at scale
-7. Context enrichment audit of early classifications
+
+- **D4.** Cross-domain analog discovery at scale (UHT's unique value proposition)
+- **D5.** Trait correlation matrix and effective dimensionality
+- **D6.** UHT vs embeddings divergence study at scale
+- **D7.** Context enrichment audit of early classifications
 
 **P2 — Under-explored entity categories:**
-8. Temporal / process entities
-9. Compositional semantics (compound concept trait inheritance)
-10. Trait correlation with external taxonomies (BFO, SUMO, Cyc)
+
+- **D8.** Temporal / process entities
+- **D9.** Compositional semantics (compound concept trait inheritance)
+- **D10.** Trait correlation with external taxonomies (BFO, SUMO, Cyc)
 
 **P3 — Operational application testing:**
-11. Run `uht-substrate impact` on a real baseline diff
-12. Run `airgen lint` on the research project
-13. Requirements deduplication via hex distance (HYP-008/HYP-009)
-14. Use `semantic-triangle` and `map-properties` for diagnostic analysis
+
+- **D11.** Run `uht-substrate impact` on a real baseline diff
+- **D12.** Run `airgen lint` on the research project
+- **D13.** Requirements deduplication via hex distance (HYP-008/HYP-009)
+- **D14.** Use `semantic-triangle` and `map-properties` for diagnostic analysis
 
 **P4 — Research infrastructure:**
-15. Record research facts aggressively (target: 200+ within 30 sessions)
-16. Run corpus-wide aggregate queries
+
+- **D15.** Record research facts aggressively (target: 200+ within 30 sessions)
+- **D16.** Run corpus-wide aggregate queries
 
 Sessions SHOULD select from this list rather than revisiting saturated topics. Once a directive has 3+ sessions with converging findings, it moves to the saturated list.
 
