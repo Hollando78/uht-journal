@@ -1196,9 +1196,9 @@ or proposals made.
 
 ## Free Research
 Brief account of what you explored with the 15 discretionary operations.
-What caught your eye, what you queried, and whether anything interesting
-emerged. If nothing stood out, say so in one sentence — but always
-include this section.
+State what topic you chose, why it differs from recent free research,
+and whether anything interesting emerged. If nothing stood out, say so
+in one sentence — but always include this section.
 
 **Graph markup:** When mentioning hex codes, entities, traits, or AIRGen
 references in the journal text, wrap them in double-brace tags so the
@@ -1306,13 +1306,29 @@ The dispatcher prefers your final text response but falls back to
   one result requirement with a trace link. Every CORPUS_EXPANSION must
   create a corpus-log entry. Every TRACE_GAP must create an observation
   and a linked hypothesis.
-- **Free research:** 15 discretionary operations for anything you find
-  interesting. Follow a tangent. Classify something unexpected. Explore
-  a connection the directed task didn't cover. Compare two entities that
-  caught your attention. This budget is yours — use it for curiosity-driven
+- **Free research:** 15 discretionary operations for curiosity-driven
   investigation that the task class wouldn't have led you to. If a free
   research finding is notable, record it as a research fact in Substrate
   and mention it in the journal entry.
+
+  **Free research rotation (mandatory):** Before starting free research,
+  check what you explored last time:
+  ```bash
+  uht-substrate facts query --predicate LAST_FREE_RESEARCH \
+    --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""'
+  ```
+  You MUST explore something different from the last 3 sessions' free
+  research topics. After completing free research, store what you did:
+  ```bash
+  uht-substrate facts upsert "autonomous-loop" LAST_FREE_RESEARCH \
+    "<2-5 word topic summary>" --namespace CLAUDE
+  ```
+  Good free research ideas: pick a random entity from `entities list`
+  and run `find-similar`; classify something from a domain you've never
+  touched; use a tool you've never used (`semantic-triangle`,
+  `map-properties`, `disambiguate`); run a corpus-wide query you've
+  never tried. Bad free research: re-examining sparsity, popcount, or
+  any topic on the saturated list.
 
 Execution order: directed research first, then AIRGen writes, then free
 research, then journal entry. At 50 directed operations, stop the main
