@@ -1,7 +1,7 @@
 # Autonomous Session Protocol — universalhex.org research loop
 # Executed via: claude --print "$(cat session_protocol.md)"
 # CLIs required: airgen-cli, uht-substrate
-# SESSION_PROTOCOL_VERSION: 4.1
+# SESSION_PROTOCOL_VERSION: 5.0
 
 ---
 
