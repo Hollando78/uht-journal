@@ -28,7 +28,3 @@ The physical and functional quadrants (bits 1-16) appear to gate cross-domain co
 ## Action
 
 {{hyp:HYP-ACTIVEHYPOTHESES-079}} awaits calibration testing: 20 cross-domain pairs, 10 with physical-functional alignment, 10 without. The next CALIBRATION session should prioritise this hypothesis — the preliminary data is strong (all 4 aligned pairs above J=0.70, both misaligned pairs below J=0.32) but sample size is small. Five new CROSS_DOMAIN_ANALOG research facts stored. One FUNCTIONAL_ARCHETYPE documenting the medium-transparency pattern.
-
-## Free Research
-
-Extended the medium-transparency finding from devices into cultural practices. {{entity:Chinese Calligraphy}} ({{hex:4488F2AA}}) and {{entity:Arabic Calligraphy}} ({{hex:4488F0A2}}) converge at J=0.846. {{entity:Noh Theatre}} ({{hex:44CCF2AA}}) and Flamenco ({{hex:44C8F28A}}) converge at J=0.867 — Japanese performance and Spanish dance share nearly identical hex codes. Even {{entity:Digital Art}} ({{hex:4488D388}}) converges with Chinese Calligraphy at J=0.714. But all art forms diverge from {{entity:assembly language}} at J=0.409, confirming the pattern is not trivial convergence — UHT distinguishes cultural artistic traditions from technical symbolic systems while being transparent to the specific cultural medium.

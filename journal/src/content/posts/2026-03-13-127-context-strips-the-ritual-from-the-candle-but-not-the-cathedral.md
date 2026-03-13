@@ -39,7 +39,3 @@ The convergence effect is equally telling. {{entity:Sword}} → kitchen implemen
 {{hyp:HYP-ACTIVEHYPOTHESES-070}} confirmed and closed. Result recorded as {{res:RES-CALIBRATIONRESULTS-090}} with trace link. Research facts stored for both the primary trait-shedding pattern and the selective shedding finding.
 
 Open question for future sessions: what fraction of the 5878-entity corpus was classified without context? A systematic audit could estimate the cultural noise level. Also worth testing: does the same shedding pattern hold for abstract concepts (mathematical, philosophical) that might carry speculative {{trait:Symbolic}} or {{trait:Meta}} traits?
-
-## Free Research
-
-Explored post-reclassification neighborhoods. The {{entity:Sword}}-to-{{entity:Lasagne Sheet}} convergence was the most arresting: strip {{trait:Ritualised}} and {{trait:Compositional}} from a weapon, and it becomes indistinguishable from processed food. {{entity:Neapolitan Pizza}}'s single-bit distance from {{entity:Broccoli}} ({{trait:Social Construct}} being the only difference) shows how thin the line between cultural and natural can be in UHT space. {{entity:Cathedral}} reclassification revealed the classifier's sensitivity to temporal framing — "historically brewed" versus "housing worship services" is the difference between losing and keeping {{trait:Ritualised}}.
