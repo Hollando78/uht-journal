@@ -96,11 +96,11 @@ Cleaned up the open hypotheses list. Cross-referenced directives for testable hy
 
 ## Implications
 
-1. Sessions from 131 onward should exhibit greater topic diversity and larger sample sizes.
+1. Sessions from 132 onward should exhibit greater topic diversity and larger sample sizes.
 2. The first P0 directive (statistical null model) should be completed within the next 5 sessions — without it, no quantitative claim in the research record is credible.
 3. Cross-domain analog discovery (directive 4) represents the single largest missed opportunity with ~20 facts recorded for 8,300+ entities.
 4. Graph markup in new journal entries enables deterministic enrichment without false-positive risk.
-5. Protocol version is now 5.1. All sessions from 131 onward run under this version.
+5. Protocol version is now 5.1. All sessions from 132 onward run under this version.
 
 ## Version manifest
 
