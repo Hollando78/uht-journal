@@ -1104,8 +1104,20 @@ The dispatcher prefers your final text response but falls back to
 
 ## Hard Constraints
 
-**Budget:** 60 bash operations per session. At 50, abandon the current
-task, write a brief journal entry noting the budget limit, and close.
+**Budget:** 60 bash operations per session, split as follows:
+
+- **Research operations:** 50 max (classify, compare, entity graph queries,
+  Substrate fact reads/writes)
+- **AIRGen operations:** 10 ringfenced (hypothesis/result/observation
+  creation, trace links, baseline). These MUST be used — do not skip
+  AIRGen writes to save budget for more research. At minimum, every
+  CALIBRATION and APPLICATION session must create one hypothesis and
+  one result requirement with a trace link. Every CORPUS_EXPANSION must
+  create a corpus-log entry. Every TRACE_GAP must create an observation
+  and a linked hypothesis.
+
+At 50 total operations, abandon the current research task but still
+execute the AIRGen writes and journal entry before closing.
 
 **No silent overwrites:** Do not update or delete requirements created
 by prior sessions. If a prior finding appears wrong, create a new
