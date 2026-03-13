@@ -275,6 +275,153 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       margin-bottom: 1rem;
     }
 
+    /* Enrich toggle */
+    .enrich-btn {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 2px;
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      font-family: var(--mono);
+      background: var(--bg-surface);
+      color: var(--text-faint);
+      border: 1px solid var(--border-accent);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .enrich-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .enrich-btn.active {
+      color: var(--accent);
+      border-color: var(--accent-dim);
+      background: var(--accent-glow);
+    }
+
+    /* Enriched references */
+    .enriched {
+      cursor: pointer;
+      border-bottom: 1px dotted var(--accent-dim);
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+    .enriched:hover { border-color: var(--accent); color: var(--accent); }
+    .enriched[data-type="hex"] { border-color: rgba(201, 162, 77, 0.4); }
+    .enriched[data-type="hyp"], .enriched[data-type="res-ref"] { border-color: rgba(107, 138, 219, 0.4); }
+    .enriched[data-type="res"] { border-color: rgba(90, 158, 111, 0.4); }
+    .enriched[data-type="obs"], .enriched[data-type="trt"] { border-color: rgba(192, 96, 96, 0.4); }
+    .enriched[data-type="trait"] { border-color: rgba(180, 120, 200, 0.4); }
+    .enriched[data-type="entity"] { border-color: rgba(201, 162, 77, 0.3); }
+
+    /* Sticky note card */
+    .enrich-card {
+      position: absolute;
+      z-index: 100;
+      width: 320px;
+      max-height: 400px;
+      overflow-y: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+      transform: rotate(-0.5deg);
+      font-size: 0.78rem;
+      line-height: 1.6;
+      animation: cardIn 0.15s ease;
+      padding: 0;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: rotate(-0.5deg) translateY(6px); }
+      to { opacity: 1; transform: rotate(-0.5deg) translateY(0); }
+    }
+    .enrich-card .card-bar {
+      height: 3px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .enrich-card .card-body { padding: 0.75rem; }
+    .enrich-card .card-title {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+    .enrich-card .card-meta {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .enrich-card .card-meta span {
+      display: inline-block;
+      background: var(--bg-hover);
+      border-radius: 2px;
+      padding: 0.1rem 0.35rem;
+      margin-right: 0.25rem;
+    }
+    .enrich-card .card-text {
+      color: var(--text);
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .enrich-card .card-traits {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-top: 0.4rem;
+    }
+    .enrich-card .card-trait {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.35rem;
+      border-radius: 2px;
+      background: var(--bg-hover);
+      color: var(--text-muted);
+    }
+    .enrich-card .card-trait[data-group="physical"] { color: #c06060; }
+    .enrich-card .card-trait[data-group="functional"] { color: #5a9e6f; }
+    .enrich-card .card-trait[data-group="abstract"] { color: #c9a24d; }
+    .enrich-card .card-trait[data-group="social"] { color: #b478c8; }
+
+    /* Bit matrix */
+    .bit-matrix {
+      display: grid;
+      grid-template-columns: repeat(8, 14px);
+      gap: 2px;
+      margin: 0.5rem 0;
+    }
+    .bit-cell {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+      background: var(--bg-hover);
+    }
+    .bit-cell.active-physical { background: rgba(192, 96, 96, 0.7); }
+    .bit-cell.active-functional { background: rgba(90, 158, 111, 0.7); }
+    .bit-cell.active-abstract { background: rgba(201, 162, 77, 0.7); }
+    .bit-cell.active-social { background: rgba(180, 120, 200, 0.7); }
+
+    .card-count {
+      font-size: 0.68rem;
+      color: var(--text-faint);
+      margin-top: 0.4rem;
+    }
+
+    @media (max-width: 600px) {
+      .enrich-card {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        top: auto !important;
+        right: 0 !important;
+        width: 100% !important;
+        max-height: 60vh;
+        border-radius: var(--radius) var(--radius) 0 0;
+        transform: none;
+        animation: cardSlideUp 0.2s ease;
+      }
+      @keyframes cardSlideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+    }
+
     @media (max-width: 600px) {
       .entry-title { font-size: 1.3rem; }
       .entry-meta { flex-wrap: wrap; }
@@ -299,6 +446,8 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
             </span>
           </>
         )}
+        <span class="meta-sep">·</span>
+        <button class="enrich-btn" id="enrich-toggle">enrich</button>
       </div>
     </div>
     <div class="entry-body">
@@ -342,4 +491,448 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       async
     ></script>
   </div>
+
+  <script is:inline>
+  (function() {
+    const API = '/api/graph';
+    const TRAIT_NAMES = [
+      'Physical Object','Synthetic','Biological/Biomimetic','Powered','Structural',
+      'Observable','Physical Medium','Active','Intentionally Designed','Outputs Effect',
+      'Processes Signals/Logic','State-Transforming','Human-Interactive','System-integrated',
+      'Functionally Autonomous','System-Essential','Symbolic','Signalling','Rule-governed',
+      'Compositional','Normative','Meta','Temporal','Digital/Virtual','Social Construct',
+      'Institutionally Defined','Identity-Linked','Regulated','Economically Significant',
+      'Politicised','Ritualised','Ethically Significant'
+    ];
+    const TRAIT_GROUPS = {};
+    TRAIT_NAMES.forEach((t, i) => {
+      TRAIT_GROUPS[t] = i < 8 ? 'physical' : i < 16 ? 'functional' : i < 24 ? 'abstract' : 'social';
+    });
+
+    let entityMap = null, hexMap = null, traitSet = null;
+    let refMap = {};
+    let cache = new Map();
+    let enriched = false;
+    let originalHTML = '';
+
+    async function query(sql) {
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain', 'Accept': 'application/json' },
+          body: sql,
+        });
+        return await res.json();
+      } catch (e) { return []; }
+    }
+
+    async function prefetch() {
+      const results = await query(
+        'SELECT name, hex, popcount FROM entity;' +
+        'SELECT bit, name, group_name FROM trait;' +
+        'SELECT ref, status FROM hypothesis;' +
+        'SELECT ref FROM result;' +
+        'SELECT ref FROM observation;' +
+        'SELECT ref FROM trait_proposal;'
+      );
+
+      // Build entity map (name lowercase -> data)
+      entityMap = new Map();
+      hexMap = new Map();
+      if (results[0] && results[0].result) {
+        results[0].result.forEach(e => {
+          entityMap.set(e.name.toLowerCase(), e);
+          if (!hexMap.has(e.hex)) hexMap.set(e.hex, []);
+          hexMap.get(e.hex).push(e.name);
+        });
+      }
+
+      // Build trait set
+      traitSet = new Set(TRAIT_NAMES.map(t => t.toLowerCase()));
+
+      // Build ref maps for short-form resolution
+      refMap = {};
+      const tables = ['hypothesis', 'result', 'observation', 'trait_proposal'];
+      [1,2,3,4].forEach(i => {
+        if (results[i+1] && results[i+1].result) {
+          results[i+1].result.forEach(r => {
+            const num = r.ref.match(/\d{3}$/);
+            if (num) {
+              const prefix = r.ref.match(/^(HYP|RES|OBS|TRT)/);
+              if (prefix) refMap[prefix[1] + '-' + num[0]] = r.ref;
+            }
+          });
+        }
+      });
+    }
+
+    function hexToBits(hex) {
+      const bits = [];
+      for (let i = 0; i < 8; i += 2) {
+        const byte = parseInt(hex.substr(i, 2), 16);
+        for (let b = 7; b >= 0; b--) {
+          bits.push((byte >> b) & 1);
+        }
+      }
+      return bits;
+    }
+
+    function renderBitMatrix(hex) {
+      const bits = hexToBits(hex);
+      const groups = ['physical','physical','physical','physical','physical','physical','physical','physical',
+                      'functional','functional','functional','functional','functional','functional','functional','functional',
+                      'abstract','abstract','abstract','abstract','abstract','abstract','abstract','abstract',
+                      'social','social','social','social','social','social','social','social'];
+      let html = '<div class="bit-matrix">';
+      bits.forEach((b, i) => {
+        const cls = b ? ' active-' + groups[i] : '';
+        html += '<div class="bit-cell' + cls + '" title="' + TRAIT_NAMES[i] + '"></div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function enrichText() {
+      const body = document.querySelector('.entry-body');
+      if (!body) return;
+      originalHTML = body.innerHTML;
+
+      const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+        acceptNode: function(node) {
+          let p = node.parentElement;
+          while (p && p !== body) {
+            if (p.tagName === 'PRE' || p.tagName === 'CODE' || p.classList.contains('enriched')) return NodeFilter.FILTER_REJECT;
+            p = p.parentElement;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+
+      const textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+      // Build entity regex (2+ word entities only, sorted longest first)
+      const multiWordEntities = [];
+      if (entityMap) {
+        entityMap.forEach((v, k) => {
+          if (k.split(' ').length >= 2 && k.length >= 6) multiWordEntities.push(k);
+        });
+      }
+      multiWordEntities.sort((a, b) => b.length - a.length);
+
+      // Build trait regex (sorted longest first)
+      const traitsSorted = [...TRAIT_NAMES].sort((a, b) => b.length - a.length);
+      const traitPattern = traitsSorted.map(t => t.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&')).join('|');
+
+      textNodes.forEach(node => {
+        const text = node.textContent;
+        if (!text.trim()) return;
+
+        // Collect all matches with positions
+        const matches = [];
+
+        // 1. AIRGen full refs: HYP-ACTIVEHYPOTHESES-067 etc
+        const refFullRe = /\b(HYP|RES|OBS|TRT)-[A-Z]+-(\d{3})\b/g;
+        let m;
+        while ((m = refFullRe.exec(text)) !== null) {
+          const prefix = m[1];
+          const type = {HYP:'hyp',RES:'res',OBS:'obs',TRT:'trt'}[prefix];
+          matches.push({ start: m.index, end: m.index + m[0].length, type, ref: m[0], text: m[0] });
+        }
+
+        // 2. AIRGen short refs: HYP-067 etc (only if not already captured)
+        const refShortRe = /\b(HYP|RES|OBS|TRT)-(\d{3})\b/g;
+        while ((m = refShortRe.exec(text)) !== null) {
+          if (matches.some(x => m.index >= x.start && m.index < x.end)) continue;
+          const prefix = m[1];
+          const fullRef = refMap[prefix + '-' + m[2]] || m[0];
+          const type = {HYP:'hyp',RES:'res',OBS:'obs',TRT:'trt'}[prefix];
+          matches.push({ start: m.index, end: m.index + m[0].length, type, ref: fullRef, text: m[0] });
+        }
+
+        // 3. Hex codes
+        const hexRe = /\b([0-9A-Fa-f]{8})\b/g;
+        while ((m = hexRe.exec(text)) !== null) {
+          if (matches.some(x => m.index >= x.start && m.index < x.end)) continue;
+          // Verify it looks like a UHT hex (not a random word)
+          const val = m[1].toUpperCase();
+          if (/^[A-F]+$/.test(val)) continue; // skip pure-letter sequences
+          matches.push({ start: m.index, end: m.index + m[0].length, type: 'hex', ref: val, text: m[0] });
+        }
+
+        // 4. Trait names
+        if (traitPattern) {
+          const traitRe = new RegExp('\\b(' + traitPattern + ')\\b', 'gi');
+          while ((m = traitRe.exec(text)) !== null) {
+            if (matches.some(x => m.index >= x.start && m.index < x.end)) continue;
+            // Find the canonical name
+            const canonical = TRAIT_NAMES.find(t => t.toLowerCase() === m[1].toLowerCase()) || m[1];
+            matches.push({ start: m.index, end: m.index + m[0].length, type: 'trait', ref: canonical, text: m[0] });
+          }
+        }
+
+        // 5. Multi-word entity names
+        multiWordEntities.forEach(ename => {
+          const escaped = ename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp('\\b' + escaped + '\\b', 'gi');
+          while ((m = re.exec(text)) !== null) {
+            if (matches.some(x => !(m.index >= x.end || m.index + m[0].length <= x.start))) continue;
+            matches.push({ start: m.index, end: m.index + m[0].length, type: 'entity', ref: ename, text: m[0] });
+          }
+        });
+
+        if (matches.length === 0) return;
+
+        // Sort by position
+        matches.sort((a, b) => a.start - b.start);
+
+        // Build replacement fragment
+        const frag = document.createDocumentFragment();
+        let cursor = 0;
+        matches.forEach(match => {
+          if (match.start > cursor) {
+            frag.appendChild(document.createTextNode(text.slice(cursor, match.start)));
+          }
+          const span = document.createElement('span');
+          span.className = 'enriched';
+          span.dataset.type = match.type;
+          span.dataset.ref = match.ref;
+          span.textContent = match.text;
+          frag.appendChild(span);
+          cursor = match.end;
+        });
+        if (cursor < text.length) {
+          frag.appendChild(document.createTextNode(text.slice(cursor)));
+        }
+        node.parentNode.replaceChild(frag, node);
+      });
+    }
+
+    function unenrich() {
+      const body = document.querySelector('.entry-body');
+      if (body && originalHTML) body.innerHTML = originalHTML;
+      closeCard();
+      enriched = false;
+      const btn = document.getElementById('enrich-toggle');
+      if (btn) { btn.textContent = 'enrich'; btn.classList.remove('active'); }
+    }
+
+    function closeCard() {
+      document.querySelectorAll('.enrich-card').forEach(c => c.remove());
+    }
+
+    function positionCard(card, span) {
+      document.body.appendChild(card);
+      const rect = span.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      let top = rect.bottom + window.scrollY + 8;
+      let left = rect.left + window.scrollX - 20;
+
+      // Keep within viewport
+      if (left + 320 > window.innerWidth) left = window.innerWidth - 340;
+      if (left < 10) left = 10;
+      if (top + cardRect.height > window.scrollY + window.innerHeight) {
+        top = rect.top + window.scrollY - cardRect.height - 8;
+      }
+
+      card.style.top = top + 'px';
+      card.style.left = left + 'px';
+    }
+
+    async function showCard(span) {
+      closeCard();
+      const type = span.dataset.type;
+      const ref = span.dataset.ref;
+      const cacheKey = type + ':' + ref;
+
+      let data = cache.get(cacheKey);
+      if (!data) {
+        data = await fetchCardData(type, ref);
+        if (data) cache.set(cacheKey, data);
+      }
+      if (!data) return;
+
+      const card = document.createElement('div');
+      card.className = 'enrich-card';
+      card.innerHTML = renderCardContent(type, ref, data);
+      positionCard(card, span);
+    }
+
+    async function fetchCardData(type, ref) {
+      let sql = '';
+      if (type === 'hex') {
+        sql = "SELECT name, popcount FROM entity WHERE hex = '" + ref + "' LIMIT 10;" +
+              "SELECT count() as total FROM entity WHERE hex = '" + ref + "' GROUP ALL;";
+      } else if (type === 'hyp') {
+        const safeRef = ref.replace(/-/g, '_');
+        sql = "SELECT * FROM hypothesis:" + safeRef + ";" +
+              "SELECT ->confirmed_by->result.ref AS results FROM hypothesis:" + safeRef + ";";
+      } else if (type === 'res') {
+        const safeRef = ref.replace(/-/g, '_');
+        sql = "SELECT * FROM result:" + safeRef + ";";
+      } else if (type === 'obs') {
+        const safeRef = ref.replace(/-/g, '_');
+        sql = "SELECT * FROM observation:" + safeRef + ";";
+      } else if (type === 'trt') {
+        const safeRef = ref.replace(/-/g, '_');
+        sql = "SELECT * FROM trait_proposal:" + safeRef + ";";
+      } else if (type === 'trait') {
+        sql = "SELECT * FROM trait WHERE name = '" + ref.replace(/'/g, "\\'") + "';" +
+              "SELECT count() as total FROM has_trait WHERE out.name = '" + ref.replace(/'/g, "\\'") + "' GROUP ALL;";
+      } else if (type === 'entity') {
+        sql = "SELECT name, hex, description, popcount FROM entity WHERE string::lowercase(name) = '" + ref.toLowerCase().replace(/'/g, "\\'") + "';" +
+              "SELECT ->has_trait->trait.name AS traits FROM entity WHERE string::lowercase(name) = '" + ref.toLowerCase().replace(/'/g, "\\'") + "';";
+      }
+      if (!sql) return null;
+      const results = await query(sql);
+      return results;
+    }
+
+    function renderCardContent(type, ref, data) {
+      let barColor = '#c9a24d';
+      let html = '';
+
+      if (type === 'hex') {
+        const entities = (data[0] && data[0].result) || [];
+        const count = (data[1] && data[1].result && data[1].result[0]) ? data[1].result[0].total : 0;
+        const bits = hexToBits(ref);
+        const activeTraits = [];
+        bits.forEach((b, i) => { if (b) activeTraits.push(TRAIT_NAMES[i]); });
+
+        html = '<div class="card-bar" style="background:#c9a24d"></div><div class="card-body">';
+        html += '<div class="card-title">' + ref + '</div>';
+        html += renderBitMatrix(ref);
+        html += '<div class="card-meta"><span>' + activeTraits.length + ' traits</span><span>popcount ' + activeTraits.length + '</span></div>';
+        html += '<div class="card-traits">';
+        activeTraits.forEach(t => {
+          html += '<span class="card-trait" data-group="' + TRAIT_GROUPS[t] + '">' + escHtml(t) + '</span>';
+        });
+        html += '</div>';
+        if (entities.length > 0) {
+          html += '<div class="card-count">' + count + ' entit' + (count === 1 ? 'y' : 'ies') + ' with this hex:';
+          html += '<br>' + entities.slice(0, 5).map(e => escHtml(e.name)).join(', ');
+          if (count > 5) html += ', ...';
+          html += '</div>';
+        }
+        html += '</div>';
+
+      } else if (type === 'hyp') {
+        barColor = '#6b8adb';
+        const hyp = (data[0] && data[0].result && data[0].result[0]) || {};
+        const results = (data[1] && data[1].result && data[1].result[0] && data[1].result[0].results) || [];
+        html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
+        html += '<div class="card-title">' + escHtml(ref) + '</div>';
+        html += '<div class="card-meta"><span>' + (hyp.status || 'active') + '</span></div>';
+        html += '<div class="card-text">' + escHtml(hyp.text || 'Not found in graph') + '</div>';
+        if (results.length > 0) {
+          html += '<div class="card-count">Results: ' + results.filter(Boolean).map(r => escHtml(r)).join(', ') + '</div>';
+        }
+        html += '</div>';
+
+      } else if (type === 'res') {
+        barColor = '#5a9e6f';
+        const r = (data[0] && data[0].result && data[0].result[0]) || {};
+        html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
+        html += '<div class="card-title">' + escHtml(ref) + '</div>';
+        html += '<div class="card-text">' + escHtml(r.text || 'Not found in graph') + '</div>';
+        html += '</div>';
+
+      } else if (type === 'obs') {
+        barColor = '#6b7084';
+        const o = (data[0] && data[0].result && data[0].result[0]) || {};
+        html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
+        html += '<div class="card-title">' + escHtml(ref) + '</div>';
+        html += '<div class="card-text">' + escHtml(o.text || 'Not found in graph') + '</div>';
+        html += '</div>';
+
+      } else if (type === 'trt') {
+        barColor = '#c06060';
+        const t = (data[0] && data[0].result && data[0].result[0]) || {};
+        html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
+        html += '<div class="card-title">' + escHtml(ref) + '</div>';
+        html += '<div class="card-text">' + escHtml(t.text || 'Not found in graph') + '</div>';
+        html += '</div>';
+
+      } else if (type === 'trait') {
+        const trait = (data[0] && data[0].result && data[0].result[0]) || {};
+        const count = (data[1] && data[1].result && data[1].result[0]) ? data[1].result[0].total : '?';
+        const group = TRAIT_GROUPS[ref] || 'abstract';
+        const groupColors = { physical: '#c06060', functional: '#5a9e6f', abstract: '#c9a24d', social: '#b478c8' };
+        barColor = groupColors[group] || '#c9a24d';
+        html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
+        html += '<div class="card-title">' + escHtml(ref) + '</div>';
+        html += '<div class="card-meta"><span>bit ' + (trait.bit || '?') + '</span><span>' + group + '</span><span>' + count + ' entities</span></div>';
+        html += '</div>';
+
+      } else if (type === 'entity') {
+        const ent = (data[0] && data[0].result && data[0].result[0]) || {};
+        const traitData = (data[1] && data[1].result && data[1].result[0]) || {};
+        const traits = (traitData.traits || []).filter(Boolean);
+        // Deduplicate traits
+        const uniqueTraits = [...new Set(traits)];
+
+        html = '<div class="card-bar" style="background:#c9a24d"></div><div class="card-body">';
+        html += '<div class="card-title">' + escHtml(ent.name || ref) + '</div>';
+        if (ent.hex) {
+          html += '<div class="card-meta"><span>' + ent.hex + '</span><span>popcount ' + (ent.popcount || '?') + '</span></div>';
+          html += renderBitMatrix(ent.hex);
+        }
+        if (ent.description) {
+          html += '<div class="card-text" style="margin-bottom:0.5rem">' + escHtml(ent.description) + '</div>';
+        }
+        if (uniqueTraits.length > 0) {
+          html += '<div class="card-traits">';
+          uniqueTraits.forEach(t => {
+            html += '<span class="card-trait" data-group="' + (TRAIT_GROUPS[t] || '') + '">' + escHtml(t) + '</span>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+
+      return html;
+    }
+
+    // Event delegation
+    document.addEventListener('click', function(e) {
+      const span = e.target.closest('.enriched');
+      if (span) {
+        e.preventDefault();
+        showCard(span);
+        return;
+      }
+      if (!e.target.closest('.enrich-card')) {
+        closeCard();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeCard();
+    });
+
+    // Toggle button
+    const btn = document.getElementById('enrich-toggle');
+    if (btn) {
+      btn.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        if (enriched) { unenrich(); return; }
+        this.textContent = 'loading...';
+        try {
+          await prefetch();
+          enrichText();
+          enriched = true;
+          this.textContent = 'enriched';
+          this.classList.add('active');
+        } catch (err) {
+          this.textContent = 'unavailable';
+          setTimeout(() => { this.textContent = 'enrich'; }, 2000);
+        }
+      });
+    }
+  })();
+  </script>
 </Base>
