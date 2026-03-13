@@ -341,36 +341,203 @@ Otherwise, select the first matching class in priority order:
 6. **CORPUS_EXPANSION** — if `$LAST_TASK != CORPUS_EXPANSION` AND `$CORPUS_HOURS >= 12`
 7. **CALIBRATION** — default fallback
 
-**Current research phase: FALSIFICATION.** The corpus contains 2900+
-entities across 20+ domains. The priority is now testing hypotheses,
-not adding more entities. Prefer CALIBRATION and APPLICATION over
-CORPUS_EXPANSION. When CORPUS_EXPANSION does run, select domains that
-would stress-test existing hypotheses rather than exploring new ground.
+**Current research phase: DIRECTED INVESTIGATION.** The corpus contains
+8,300+ entities across 20+ domains. The initial falsification phase is
+mature — basic structural properties of the hex space are well-established.
+The priority is now: (1) scale up from anecdote to statistical analysis,
+(2) test practical applications, and (3) explore neglected dimensions of
+the taxonomy. Prefer APPLICATION and CALIBRATION over CORPUS_EXPANSION.
 
-**Open hypotheses requiring testing:**
-- HYP-008: Requirements deduplication via hex distance (duplicate of HYP-009, test once)
+---
+
+### Saturated topics (DO NOT revisit without a genuinely novel angle)
+
+Before choosing a research question, check the last 5 journal entries.
+The following topics have been extensively covered across 15+ sessions
+each and MUST NOT be the primary focus of a session:
+
+- **Null-hex / sparse trait entities** — three-tier rescuability model
+  established, pure-state vs property-bearing divide confirmed. DONE.
+- **Popcount as complexity metric** — phase boundary found, inverted-U
+  confirmed, ontological multi-facetedness interpretation established. DONE.
+- **Trait loss / markedness asymmetry** — erasure-not-inversion pattern
+  confirmed across 8+ antonym pairs. DONE.
+- **Antonym / binary opposition structure** — trimodal structure confirmed,
+  false dichotomy detection demonstrated, subsumption pattern found. DONE.
+- **"UHT measures being, not doing"** — confirmed from 6+ independent
+  angles. DONE.
+
+---
+
+### Research agenda — priority-ordered directives
+
+Each directive below is an under-explored research direction. Sessions
+SHOULD select from this list rather than revisiting saturated topics.
+When a directive has been adequately addressed (3+ sessions with
+converging findings), move it to the saturated list above.
+
+**P0 — Methodological foundations (do these FIRST):**
+
+1. **Statistical null model.** Generate a baseline to evaluate all
+   future claims. Classify 50 randomly generated concept names (or
+   use `entities list` to pull 200+ existing entities). Compute the
+   Jaccard distribution, popcount distribution, and collision rate
+   across the real corpus. Then generate 10,000 random 32-bit vectors
+   and compute the same statistics. Report which observed patterns are
+   statistically significant vs expected by chance. Store the baseline
+   statistics as research facts. Without this, no quantitative claim
+   in the research record is credible.
+   ```bash
+   # Example: corpus-wide popcount distribution
+   uht-substrate entities list --limit 500 --format pretty
+   # Compute popcount histogram from hex codes
+   ```
+
+2. **Scale up sample sizes.** STOP testing hypotheses with 6-12
+   hand-picked entities. The graph has 8,300+ entities. Use
+   `entities list`, `entities search-traits`, and `entities find-similar`
+   to draw samples of 50-200 entities. Selection bias from hand-picked
+   examples has undermined most existing CALIBRATION results.
+
+3. **Use `disambiguate` before classifying ambiguous terms.** Run
+   `uht-substrate disambiguate "<term>"` for any polysemous concept
+   before classification. This addresses the drift problem from session
+   78 at the source and should become standard practice.
+
+**P1 — High-value unexplored directions:**
+
+4. **Cross-domain analog discovery at scale.** This is UHT's unique
+   value proposition — finding ontological twins across unrelated
+   domains that embeddings cannot detect. Run `entities find-similar`
+   across 500+ randomly sampled entities. Record every cross-domain
+   pair with Jaccard >= 0.70 as a CROSS_DOMAIN_ANALOG research fact.
+   Build a curated catalog of the most surprising analogs. Currently
+   only ~20 cross-domain facts exist for 8,300+ entities — this is
+   the single largest missed opportunity.
+   ```bash
+   uht-substrate entities find-similar "<entity>" --min-traits 20 --limit 10
+   ```
+
+5. **Trait correlation matrix and effective dimensionality.** Session
+   103 found ~8 effective dimensions in 32 bits (HYP-053 untested).
+   Compute the full phi-correlation matrix across the corpus. Cluster
+   the traits. Name the effective dimensions. Determine which traits
+   are redundant and where new traits should be added. This is a
+   publishable structural finding about the taxonomy itself.
+   ```bash
+   uht-substrate entities search-traits --<trait-A> --<trait-B> --limit 500
+   uht-substrate entities search-traits --<trait-A> --no-<trait-B> --limit 500
+   ```
+
+6. **UHT vs embeddings divergence study at scale.** Take 200+ entity
+   pairs, compute both UHT Jaccard and embedding cosine similarity (via
+   `entities explore --metric embedding`), systematically catalog
+   where they disagree. This is the publishable comparison that
+   justifies UHT's existence as complementary to embeddings.
+
+7. **Context enrichment audit.** Most of the 8,300+ entities were
+   classified without rich context descriptions in early sessions.
+   Randomly sample 100+ entities classified before protocol v4.1.
+   Reclassify with `--force-refresh` and rich `--context` descriptions.
+   Measure systematic drift patterns. Quantify what fraction of the
+   corpus has unreliable classifications. This is a data quality
+   issue that undermines every quantitative claim.
+   ```bash
+   uht-substrate classify "<entity>" --force-refresh \
+     --context "<rich description>"
+   ```
+
+**P2 — Under-explored entity categories and phenomena:**
+
+8. **Temporal / process entities.** How does UHT handle events,
+   durations, workflows, ceremonies? Classify 20+ entities: wedding,
+   trial, software release, monsoon season, construction project,
+   presidential election, photosynthesis, fermentation, bankruptcy
+   proceeding, geological epoch. Test whether UHT discriminates process
+   types (cyclical vs terminal, reversible vs irreversible, individual
+   vs institutional). Barely explored (only sessions 25, 117).
+
+9. **Compositional semantics.** Do compound concepts inherit traits
+   from their parts? Session 89 found they are not trait-additive —
+   a major finding never followed up. Classify 15+ compound concepts
+   alongside their components (e.g. "solar panel" vs "solar" + "panel",
+   "blood bank" vs "blood" + "bank"). Measure trait inheritance rate
+   and identify which traits compose and which emerge.
+
+10. **Trait correlation with external taxonomies.** Do UHT trait groups
+    map to established ontological categories (BFO upper ontology,
+    SUMO, Cyc)? Classify 30+ entities from a well-known ontology and
+    check alignment. This would validate or challenge UHT's trait
+    definitions against established standards.
+
+**P3 — Operational application testing:**
+
+11. **Run `uht-substrate impact` on a real baseline diff.** This is
+    the operational use case that justifies UHT's existence in
+    requirements engineering. Create two baselines at different points,
+    diff them, and run impact analysis. Has NEVER been tested.
+    ```bash
+    uht-substrate impact --diff /tmp/diff.json
+    ```
+
+12. **Run `airgen lint` on the research project.** Test whether
+    UHT-based semantic linting produces useful quality signals for
+    the research requirements themselves.
+    ```bash
+    airgen lint $TENANT $PROJECT
+    ```
+
+13. **Requirements deduplication via hex distance.** HYP-008/HYP-009
+    are still open. Use `batch-compare` across 50+ AIRGen requirements
+    to find near-duplicate pairs by UHT Jaccard. Evaluate whether
+    hex distance predicts semantic redundancy better than text
+    similarity.
+
+14. **Use `semantic-triangle` and `map-properties` for diagnostic
+    analysis.** These tools have NEVER been used. Run
+    `uht-substrate semantic-triangle "<entity>"` on 10 entities to
+    understand how the classifier conceptualizes them. Run
+    `uht-substrate map-properties "<description>"` to test whether
+    natural language properties map cleanly to trait bits.
+
+**P4 — Research infrastructure improvements:**
+
+15. **Record research facts aggressively.** After 130 sessions and
+    8,300+ entities, only 20 research facts exist. Every session that
+    discovers a cross-domain analog, hex collision, trait outlier, or
+    functional archetype MUST store it as a research fact. The target
+    is 200+ facts within 30 sessions. Without a populated knowledge
+    base, sessions cannot build on prior work.
+
+16. **Run corpus-wide aggregate queries.** No session has ever run
+    aggregate statistics over the full entity graph. Dedicate a session
+    to computing: trait activation frequency across all entities,
+    most common hex codes, collision rate, popcount distribution,
+    Jaccard percentile distribution. Store results as research facts.
+    A single statistical sweep could produce more publishable findings
+    than 20 sessions of entity-pair analysis.
+
+---
+
+### Open hypotheses requiring testing
+
+- HYP-008: Requirements deduplication via hex distance (→ directive 13)
 - HYP-011: Null-hex entities are specifically process-dependent/context-embedded
-- HYP-040: Trait correlation (phi > 0.70 for 3+ pairs) — valid, worth testing
-- HYP-041: Drift convergence — CLOSED (pre-empted by v4.1 context fix; drift was caused by missing context, not classifier non-determinism)
-- HYP-006 is now CLOSED (refuted, session 49)
+- HYP-040: Trait correlation phi > 0.70 for 3+ pairs (→ directive 5)
+- HYP-053: The ~8 effective dimensions are interpretable meta-trait clusters (→ directive 5)
+- HYP-041: CLOSED (pre-empted by v4.1 context fix)
+- HYP-006: CLOSED (refuted, session 49)
 
-**Classification instability — resolved in v4.1:**
+### Classification instability — resolved in v4.1
+
 Prior sessions (v4.0 and earlier) classified entities with bare names and
 no `--context` description. This caused stochastic results for polysemous
-terms (e.g. "Compression" oscillated between 3 unrelated hex codes across
-sessions). This is NOT a system defect — it is the expected behavior when
-the classifier receives an ambiguous name with no description to anchor
-trait evaluation. As of protocol v4.1 and CLI v0.4.5, all classify calls
-require `--context` with a rich description, and drift checks use
-`--force-refresh`. Treat prior drift findings (HYP-041, session 78
-observations) as artifacts of missing context, not evidence of classifier
-non-determinism. Do NOT spend sessions investigating classification
-instability for entities classified without context.
-
-**Remaining open questions:**
-- 25 entities classify as 00000000 — is this a trait-set gap or correct?
-- Failure modes show systematic trait deficit vs constructive counterparts
-  — does this hold outside software engineering?
+terms (e.g. "Compression" oscillated between 3 hex codes). This is the
+expected behavior when the classifier receives an ambiguous name. As of
+protocol v4.1 and CLI v0.4.5, all classify calls require `--context`.
+Treat prior drift findings as artifacts of missing context, not classifier
+non-determinism. Do NOT investigate classification instability for entities
+classified without context.
 
 **Classification behavior — caching, context, and force-refresh:**
 The Substrate API caches classifications by entity name. A cached entity
@@ -1032,6 +1199,24 @@ Brief account of what you explored with the 15 discretionary operations.
 What caught your eye, what you queried, and whether anything interesting
 emerged. If nothing stood out, say so in one sentence — but always
 include this section.
+
+**Graph markup:** When mentioning hex codes, entities, traits, or AIRGen
+references in the journal text, wrap them in double-brace tags so the
+journal site can link them to the research graph automatically:
+
+- `{{hex:E6881098}}` — UHT hex codes
+- `{{entity:Candle}}` — entity names (exact Substrate name)
+- `{{trait:Ritualised}}` — trait names (exact trait name)
+- `{{hyp:HYP-ACTIVEHYPOTHESES-075}}` — hypothesis refs
+- `{{res:RES-CALIBRATIONRESULTS-088}}` — result refs
+- `{{obs:OBS-STRUCTURALFINDINGS-060}}` — observation refs
+- `{{trt:TRT-TRAITPROPOSALS-009}}` — trait proposal refs
+
+These render as plain text in the journal but become interactive graph
+links when enrichment is toggled on. Use them inline in prose wherever
+the reference appears naturally — do not restructure sentences to
+accommodate tags. Hex codes and AIRGen refs MUST always be tagged.
+Entity and trait names SHOULD be tagged on first mention in each section.
 
 **Exclude:**
 - Command names, flag names, JSON keys, tool call mechanics
