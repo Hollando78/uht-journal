@@ -1104,10 +1104,10 @@ The dispatcher prefers your final text response but falls back to
 
 ## Hard Constraints
 
-**Budget:** 60 bash operations per session, split as follows:
+**Budget:** 75 bash operations per session, split as follows:
 
-- **Research operations:** 50 max (classify, compare, entity graph queries,
-  Substrate fact reads/writes)
+- **Directed research:** 50 max (classify, compare, entity graph queries,
+  Substrate fact reads/writes — executing the assigned task class)
 - **AIRGen operations:** 10 ringfenced (hypothesis/result/observation
   creation, trace links, baseline). These MUST be used — do not skip
   AIRGen writes to save budget for more research. At minimum, every
@@ -1115,9 +1115,17 @@ The dispatcher prefers your final text response but falls back to
   one result requirement with a trace link. Every CORPUS_EXPANSION must
   create a corpus-log entry. Every TRACE_GAP must create an observation
   and a linked hypothesis.
+- **Free research:** 15 discretionary operations for anything you find
+  interesting. Follow a tangent. Classify something unexpected. Explore
+  a connection the directed task didn't cover. Compare two entities that
+  caught your attention. This budget is yours — use it for curiosity-driven
+  investigation that the task class wouldn't have led you to. If a free
+  research finding is notable, record it as a research fact in Substrate
+  and mention it in the journal entry.
 
-At 50 total operations, abandon the current research task but still
-execute the AIRGen writes and journal entry before closing.
+Execution order: directed research first, then AIRGen writes, then free
+research, then journal entry. At 50 directed operations, stop the main
+task but still execute AIRGen writes, free research, and journal entry.
 
 **No silent overwrites:** Do not update or delete requirements created
 by prior sessions. If a prior finding appears wrong, create a new
