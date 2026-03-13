@@ -55,7 +55,10 @@ export SESSION_START
 log "SESSION START"
 
 # --- Run Claude session ---
+JOURNAL_ENTRY_FILE="/tmp/uht-journal-entry.md"
 : > "$OUTPUT_FILE"
+rm -f "$JOURNAL_ENTRY_FILE"
+export JOURNAL_ENTRY_FILE
 
 if claude -p "$(cat "$LOOP_DIR/session_protocol.md")" --allowedTools "Bash(*)" > "$OUTPUT_FILE" 2>> "$LOG_FILE"; then
   log "Claude session completed successfully"
@@ -65,6 +68,12 @@ else
   ELAPSED=$(( $(date +%s) - $(date -d "$SESSION_START" +%s 2>/dev/null || echo "0") ))
   send_telegram "$(printf 'UHT Loop — session failed\nExit code: %s\nElapsed: %sm\nCheck: /var/log/uht-loop/' "$EXIT_CODE" "$(( ELAPSED / 60 ))")"
   exit $EXIT_CODE
+fi
+
+# --- Fallback: if stdout has no front matter, check the file-based backup ---
+if ! grep -q '^---' "$OUTPUT_FILE" && [ -s "$JOURNAL_ENTRY_FILE" ]; then
+  log "Stdout missing journal entry — using file-based backup from $JOURNAL_ENTRY_FILE"
+  cp "$JOURNAL_ENTRY_FILE" "$OUTPUT_FILE"
 fi
 
 # --- Extract journal entry ---

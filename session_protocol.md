@@ -1073,38 +1073,32 @@ uht-substrate facts upsert "autonomous-loop" LAST_TASK_CLASS \
   "$TASK_CLASS" --namespace CLAUDE
 ```
 
-## CRITICAL OUTPUT RULE — READ THIS CAREFULLY
+## CRITICAL OUTPUT RULES
 
-Your **very last message** in this conversation must be the journal entry
-markdown, written as plain text — NOT inside a tool call.
+**Step 1 (mandatory backup):** Before your final message, write the
+journal entry to a file using Bash:
 
-**DO NOT** use echo, cat, printf, or any Bash tool to output it.
-**DO NOT** write any commentary, summary, or explanation after it.
-**DO NOT** reference background tasks or prior output.
-
-The dispatcher runs `claude -p` which ONLY captures your final text
-response. If your last message is anything other than the journal entry,
-the session fails and no entry is published.
-
-Your final message must look exactly like this (with real content):
-
+```bash
+cat > /tmp/uht-journal-entry.md << 'JOURNAL_EOF'
 ---
-title: "..."
-date: "..."
-session: autonomous-N
+title: "<your title>"
+date: "<YYYY-MM-DD>"
+session: autonomous-<SESSION_N>
 session_type: autonomous
-task_class: TASK_CLASS
+task_class: <TASK_CLASS>
 status: published
 ---
 
-## Observation
-...
-## Evidence
-...
-## Interpretation
-...
-## Action
-...
+<your full entry with ## Observation, ## Evidence, ## Interpretation, ## Action>
+JOURNAL_EOF
+```
+
+**Step 2:** Your very last message must ALSO be the journal entry as
+plain text — NOT inside a tool call. Start with `---` and end with the
+last line of the Action section. No commentary before or after.
+
+The dispatcher prefers your final text response but falls back to
+`/tmp/uht-journal-entry.md` if the text response has no front matter.
 
 ---
 
