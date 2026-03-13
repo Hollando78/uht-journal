@@ -15,7 +15,14 @@ const { Content } = await render(post);
 
 const allPosts = (await getCollection('posts'))
   .filter((p) => p.data.status === 'published')
-  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+  .sort((a, b) => {
+    const da = new Date(a.data.date + (a.data.time ? 'T' + a.data.time : '')).getTime();
+    const db = new Date(b.data.date + (b.data.time ? 'T' + b.data.time : '')).getTime();
+    if (db !== da) return db - da;
+    const sa = parseInt((a.data.session || '').replace(/\D/g, '')) || 0;
+    const sb = parseInt((b.data.session || '').replace(/\D/g, '')) || 0;
+    return sb - sa;
+  });
 
 const currentIndex = allPosts.findIndex(p => p.id === post.id);
 const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
@@ -275,6 +282,16 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       margin-bottom: 1rem;
     }
 
+    @media (max-width: 600px) {
+      .entry-title { font-size: 1.3rem; }
+      .entry-meta { flex-wrap: wrap; }
+      .entry-nav { flex-direction: column; }
+      .nav-link { max-width: 100%; }
+      .nav-link.next { text-align: left; }
+    }
+  </style>
+
+  <style is:global>
     /* Enrich toggle */
     .enrich-btn {
       display: inline-block;
@@ -403,6 +420,76 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       margin-top: 0.4rem;
     }
 
+    .card-ref {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--text-faint);
+      letter-spacing: 0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .card-section-label {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      margin-top: 0.6rem;
+      margin-bottom: 0.2rem;
+    }
+    .card-ref-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.2rem;
+    }
+    .card-ref-tag {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      padding: 0.1rem 0.35rem;
+      border-radius: 2px;
+      background: var(--bg-hover);
+      color: var(--text-muted);
+    }
+    .card-ref-tag.hyp { border-left: 2px solid #6b8adb; }
+    .card-ref-tag.res { border-left: 2px solid #5a9e6f; }
+    .card-origin {
+      font-size: 0.65rem;
+      color: var(--text-faint);
+      margin-top: 0.5rem;
+    }
+    .card-tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.2rem;
+      margin-top: 0.4rem;
+    }
+    .card-tag {
+      font-size: 0.58rem;
+      padding: 0.05rem 0.3rem;
+      border-radius: 2px;
+      background: var(--bg-hover);
+      color: var(--text-faint);
+    }
+    .card-entity-list {
+      margin-top: 0.25rem;
+    }
+    .card-entity-item {
+      padding: 0.2rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-entity-item:last-child { border-bottom: none; }
+    .card-entity-name {
+      display: block;
+      font-weight: 500;
+      color: var(--text-bright);
+      font-size: 0.75rem;
+    }
+    .card-entity-desc {
+      display: block;
+      font-size: 0.62rem;
+      color: var(--text-faint);
+      line-height: 1.4;
+    }
+
     @media (max-width: 600px) {
       .enrich-card {
         position: fixed !important;
@@ -420,14 +507,6 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
         from { transform: translateY(100%); }
         to { transform: translateY(0); }
       }
-    }
-
-    @media (max-width: 600px) {
-      .entry-title { font-size: 1.3rem; }
-      .entry-meta { flex-wrap: wrap; }
-      .entry-nav { flex-direction: column; }
-      .nav-link { max-width: 100%; }
-      .nav-link.next { text-align: left; }
     }
   </style>
 
@@ -472,25 +551,6 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
 
   <a class="back-link" href="/">← all entries</a>
 
-  <div class="comments-section">
-    <h3 class="comments-heading">Discussion</h3>
-    <script
-      src="https://giscus.app/client.js"
-      data-repo="OWNER/REPO"
-      data-repo-id=""
-      data-category="Announcements"
-      data-category-id=""
-      data-mapping="pathname"
-      data-strict="0"
-      data-reactions-enabled="1"
-      data-emit-metadata="0"
-      data-input-position="top"
-      data-theme="dark_dimmed"
-      data-lang="en"
-      crossorigin="anonymous"
-      async
-    ></script>
-  </div>
 
   <script is:inline>
   (function() {
@@ -542,6 +602,12 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       if (results[0] && results[0].result) {
         results[0].result.forEach(e => {
           entityMap.set(e.name.toLowerCase(), e);
+          // Also index short name for "Diamond (gemstone)" -> "diamond"
+          const paren = e.name.indexOf(' (');
+          if (paren > 0) {
+            const short = e.name.slice(0, paren).toLowerCase();
+            if (!entityMap.has(short)) entityMap.set(short, e);
+          }
           if (!hexMap.has(e.hex)) hexMap.set(e.hex, []);
           hexMap.get(e.hex).push(e.name);
         });
@@ -605,7 +671,7 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
         acceptNode: function(node) {
           let p = node.parentElement;
           while (p && p !== body) {
-            if (p.tagName === 'PRE' || p.tagName === 'CODE' || p.classList.contains('enriched')) return NodeFilter.FILTER_REJECT;
+            if (p.tagName === 'PRE' || p.tagName === 'CODE' || p.classList.contains('enriched') || p.dataset.graphType) return NodeFilter.FILTER_REJECT;
             p = p.parentElement;
           }
           return NodeFilter.FILTER_ACCEPT;
@@ -615,14 +681,28 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       const textNodes = [];
       while (walker.nextNode()) textNodes.push(walker.currentNode);
 
-      // Build entity regex (2+ word entities only, sorted longest first)
+      // Build entity lists sorted longest first
       const multiWordEntities = [];
+      const singleWordEntities = [];
+      const ENTITY_STOPLIST = new Set([
+        'absent','amount','anything','brave','cheat','credit','cult','distortion',
+        'elephant','entropy','eternity','extinction','god-man','government',
+        'human','imagination','internet','intuition','journey','jury','kink',
+        'kitsch','knee','library','limit','open','sheet','camping','citizen',
+        'citizenship','city','hospital','asian'
+      ]);
       if (entityMap) {
         entityMap.forEach((v, k) => {
-          if (k.split(' ').length >= 2 && k.length >= 6) multiWordEntities.push(k);
+          const name = v.name || k;
+          if (k.split(' ').length >= 2) {
+            multiWordEntities.push(k);
+          } else if (k.length >= 4 && !ENTITY_STOPLIST.has(k)) {
+            singleWordEntities.push(name);
+          }
         });
       }
       multiWordEntities.sort((a, b) => b.length - a.length);
+      singleWordEntities.sort((a, b) => b.length - a.length);
 
       // Build trait regex (sorted longest first)
       const traitsSorted = [...TRAIT_NAMES].sort((a, b) => b.length - a.length);
@@ -635,9 +715,15 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
         // Collect all matches with positions
         const matches = [];
 
+        // 0. Explicit graph markup: {{type:ref}}
+        const tagRe = /\{\{(hex|entity|trait|hyp|res|obs|trt):([^}]+)\}\}/g;
+        let m;
+        while ((m = tagRe.exec(text)) !== null) {
+          matches.push({ start: m.index, end: m.index + m[0].length, type: m[1], ref: m[2], text: m[2], tagged: true });
+        }
+
         // 1. AIRGen full refs: HYP-ACTIVEHYPOTHESES-067 etc
         const refFullRe = /\b(HYP|RES|OBS|TRT)-[A-Z]+-(\d{3})\b/g;
-        let m;
         while ((m = refFullRe.exec(text)) !== null) {
           const prefix = m[1];
           const type = {HYP:'hyp',RES:'res',OBS:'obs',TRT:'trt'}[prefix];
@@ -675,12 +761,25 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
           }
         }
 
-        // 5. Multi-word entity names
+        // 5. Multi-word entity names (case-insensitive)
         multiWordEntities.forEach(ename => {
           const escaped = ename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const re = new RegExp('\\b' + escaped + '\\b', 'gi');
           while ((m = re.exec(text)) !== null) {
             if (matches.some(x => !(m.index >= x.end || m.index + m[0].length <= x.start))) continue;
+            matches.push({ start: m.index, end: m.index + m[0].length, type: 'entity', ref: ename, text: m[0] });
+          }
+        });
+
+        // 6. Single-word entity names (case-sensitive, must be Capitalised, not after ". ")
+        singleWordEntities.forEach(ename => {
+          const escaped = ename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp('\\b' + escaped + '\\b', 'g');
+          while ((m = re.exec(text)) !== null) {
+            if (matches.some(x => !(m.index >= x.end || m.index + m[0].length <= x.start))) continue;
+            // Skip if at start of sentence (after ". " or start of text)
+            const before = text.slice(Math.max(0, m.index - 3), m.index);
+            if (/[.!?]\s*$/.test(before) || m.index === 0) continue;
             matches.push({ start: m.index, end: m.index + m[0].length, type: 'entity', ref: ename, text: m[0] });
           }
         });
@@ -714,7 +813,11 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
 
     function unenrich() {
       const body = document.querySelector('.entry-body');
-      if (body && originalHTML) body.innerHTML = originalHTML;
+      if (body && originalHTML) {
+        body.innerHTML = originalHTML;
+        // Re-strip tags after restoring original HTML
+        stripTagsFn(body);
+      }
       closeCard();
       enriched = false;
       const btn = document.getElementById('enrich-toggle');
@@ -747,6 +850,7 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       closeCard();
       const type = span.dataset.type;
       const ref = span.dataset.ref;
+      if (!type || !ref) return;
       const cacheKey = type + ':' + ref;
 
       let data = cache.get(cacheKey);
@@ -765,132 +869,245 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
     async function fetchCardData(type, ref) {
       let sql = '';
       if (type === 'hex') {
-        sql = "SELECT name, popcount FROM entity WHERE hex = '" + ref + "' LIMIT 10;" +
+        sql = "SELECT name, popcount, description FROM entity WHERE hex = '" + ref + "' LIMIT 10;" +
               "SELECT count() as total FROM entity WHERE hex = '" + ref + "' GROUP ALL;";
       } else if (type === 'hyp') {
         const safeRef = ref.replace(/-/g, '_');
         sql = "SELECT * FROM hypothesis:" + safeRef + ";" +
-              "SELECT ->confirmed_by->result.ref AS results FROM hypothesis:" + safeRef + ";";
+              "SELECT ->confirmed_by->result.ref AS results FROM hypothesis:" + safeRef + ";" +
+              "SELECT ->refuted_by->result.ref AS refutations FROM hypothesis:" + safeRef + ";" +
+              "SELECT <-produced<-session.{number, title} AS sessions FROM hypothesis:" + safeRef + ";";
       } else if (type === 'res') {
         const safeRef = ref.replace(/-/g, '_');
-        sql = "SELECT * FROM result:" + safeRef + ";";
+        sql = "SELECT * FROM result:" + safeRef + ";" +
+              "SELECT <-confirmed_by<-hypothesis.{ref, status} AS confirms FROM result:" + safeRef + ";" +
+              "SELECT <-produced<-session.{number, title} AS sessions FROM result:" + safeRef + ";";
       } else if (type === 'obs') {
         const safeRef = ref.replace(/-/g, '_');
-        sql = "SELECT * FROM observation:" + safeRef + ";";
+        sql = "SELECT * FROM observation:" + safeRef + ";" +
+              "SELECT <-produced<-session.{number, title} AS sessions FROM observation:" + safeRef + ";";
       } else if (type === 'trt') {
         const safeRef = ref.replace(/-/g, '_');
-        sql = "SELECT * FROM trait_proposal:" + safeRef + ";";
+        sql = "SELECT * FROM trait_proposal:" + safeRef + ";" +
+              "SELECT <-proposed_trait<-session.{number, title} AS sessions FROM trait_proposal:" + safeRef + ";";
       } else if (type === 'trait') {
         sql = "SELECT * FROM trait WHERE name = '" + ref.replace(/'/g, "\\'") + "';" +
-              "SELECT count() as total FROM has_trait WHERE out.name = '" + ref.replace(/'/g, "\\'") + "' GROUP ALL;";
+              "SELECT count() as total FROM has_trait WHERE out.name = '" + ref.replace(/'/g, "\\'") + "' GROUP ALL;" +
+              "SELECT <-has_trait<-entity.name AS sample_entities FROM trait WHERE name = '" + ref.replace(/'/g, "\\'") + "' LIMIT 1;";
       } else if (type === 'entity') {
-        sql = "SELECT name, hex, description, popcount FROM entity WHERE string::lowercase(name) = '" + ref.toLowerCase().replace(/'/g, "\\'") + "';" +
-              "SELECT ->has_trait->trait.name AS traits FROM entity WHERE string::lowercase(name) = '" + ref.toLowerCase().replace(/'/g, "\\'") + "';";
+        const safeEntityRef = ref.toLowerCase().replace(/'/g, "\\'");
+        const where = "string::lowercase(name) = '" + safeEntityRef + "' OR string::starts_with(string::lowercase(name), '" + safeEntityRef + " (')";
+        sql = "SELECT name, hex, description, popcount FROM entity WHERE " + where + ";" +
+              "SELECT ->has_trait->trait.{name, group_name} AS traits FROM entity WHERE " + where + ";" +
+              "SELECT hex FROM entity WHERE " + where + " LIMIT 1;";
       }
       if (!sql) return null;
       const results = await query(sql);
       return results;
     }
 
+    function extractText(raw) {
+      // AIRGen text has [Confirmed by:...] blocks — extract the core claim
+      if (!raw) return '';
+      const bracket = raw.indexOf(' [');
+      return bracket > 0 ? raw.slice(0, bracket) : raw;
+    }
+
+    function sessionLink(s) {
+      if (!s || !s.number) return '';
+      return '<a href="/" style="color:var(--accent);text-decoration:none">session ' + s.number + '</a>';
+    }
+
+    function statusBadge(status) {
+      const colors = { active: '#6b8adb', confirmed: '#5a9e6f', closed: '#6b7084', refuted: '#c06060' };
+      const c = colors[(status || '').toLowerCase()] || '#6b7084';
+      return '<span style="color:' + c + ';font-weight:600;text-transform:uppercase;font-size:0.6rem;letter-spacing:0.08em">' + escHtml(status || 'active') + '</span>';
+    }
+
     function renderCardContent(type, ref, data) {
+      const r = (i) => (data[i] && data[i].result && data[i].result[0]) || {};
+      const rAll = (i) => (data[i] && data[i].result) || [];
       let barColor = '#c9a24d';
       let html = '';
 
       if (type === 'hex') {
-        const entities = (data[0] && data[0].result) || [];
-        const count = (data[1] && data[1].result && data[1].result[0]) ? data[1].result[0].total : 0;
+        const entities = rAll(0);
+        const count = r(1).total || 0;
         const bits = hexToBits(ref);
         const activeTraits = [];
         bits.forEach((b, i) => { if (b) activeTraits.push(TRAIT_NAMES[i]); });
 
         html = '<div class="card-bar" style="background:#c9a24d"></div><div class="card-body">';
-        html += '<div class="card-title">' + ref + '</div>';
+        html += '<div class="card-title"><span style="font-size:1.1rem;letter-spacing:0.05em">' + ref + '</span></div>';
         html += renderBitMatrix(ref);
-        html += '<div class="card-meta"><span>' + activeTraits.length + ' traits</span><span>popcount ' + activeTraits.length + '</span></div>';
+        html += '<div class="card-meta"><span>popcount ' + activeTraits.length + '</span></div>';
         html += '<div class="card-traits">';
         activeTraits.forEach(t => {
           html += '<span class="card-trait" data-group="' + TRAIT_GROUPS[t] + '">' + escHtml(t) + '</span>';
         });
         html += '</div>';
         if (entities.length > 0) {
-          html += '<div class="card-count">' + count + ' entit' + (count === 1 ? 'y' : 'ies') + ' with this hex:';
-          html += '<br>' + entities.slice(0, 5).map(e => escHtml(e.name)).join(', ');
-          if (count > 5) html += ', ...';
+          html += '<div class="card-section-label">' + count + ' entit' + (count === 1 ? 'y' : 'ies') + ' with this hex</div>';
+          html += '<div class="card-entity-list">';
+          entities.slice(0, 6).forEach(e => {
+            html += '<div class="card-entity-item"><span class="card-entity-name">' + escHtml(e.name) + '</span>';
+            if (e.description) html += '<span class="card-entity-desc">' + escHtml(e.description.slice(0, 80)) + (e.description.length > 80 ? '...' : '') + '</span>';
+            html += '</div>';
+          });
+          if (count > 6) html += '<div class="card-count">+ ' + (count - 6) + ' more</div>';
           html += '</div>';
+        } else {
+          html += '<div class="card-count" style="margin-top:0.5rem">Hex not in current entity graph (may reflect a reclassification)</div>';
         }
         html += '</div>';
 
       } else if (type === 'hyp') {
         barColor = '#6b8adb';
-        const hyp = (data[0] && data[0].result && data[0].result[0]) || {};
-        const results = (data[1] && data[1].result && data[1].result[0] && data[1].result[0].results) || [];
+        const hyp = r(0);
+        const results = (r(1).results || []).filter(Boolean);
+        const refutations = (r(2).refutations || []).filter(Boolean);
+        const sessions = (r(3).sessions || []).filter(Boolean);
+
         html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
-        html += '<div class="card-title">' + escHtml(ref) + '</div>';
-        html += '<div class="card-meta"><span>' + (hyp.status || 'active') + '</span></div>';
-        html += '<div class="card-text">' + escHtml(hyp.text || 'Not found in graph') + '</div>';
+        html += '<div class="card-title" style="display:flex;justify-content:space-between;align-items:center">';
+        html += '<span>Hypothesis</span>' + statusBadge(hyp.status);
+        html += '</div>';
+        html += '<div class="card-ref">' + escHtml(ref) + '</div>';
+        html += '<div class="card-text">' + escHtml(extractText(hyp.text) || 'Not found in graph') + '</div>';
         if (results.length > 0) {
-          html += '<div class="card-count">Results: ' + results.filter(Boolean).map(r => escHtml(r)).join(', ') + '</div>';
+          html += '<div class="card-section-label">Confirmed by</div>';
+          html += '<div class="card-ref-list">' + results.map(r => '<span class="card-ref-tag res">' + escHtml(r) + '</span>').join('') + '</div>';
+        }
+        if (refutations.length > 0) {
+          html += '<div class="card-section-label">Refuted by</div>';
+          html += '<div class="card-ref-list">' + refutations.map(r => '<span class="card-ref-tag res">' + escHtml(r) + '</span>').join('') + '</div>';
+        }
+        if (sessions.length > 0) {
+          html += '<div class="card-origin">Produced in ' + sessionLink(sessions[0]) + '</div>';
+        }
+        if (hyp.tags && hyp.tags.length > 0) {
+          html += '<div class="card-tag-row">' + hyp.tags.map(t => '<span class="card-tag">' + escHtml(t) + '</span>').join('') + '</div>';
         }
         html += '</div>';
 
       } else if (type === 'res') {
         barColor = '#5a9e6f';
-        const r = (data[0] && data[0].result && data[0].result[0]) || {};
+        const res = r(0);
+        const confirms = (r(1).confirms || []).filter(Boolean);
+        const sessions = (r(2).sessions || []).filter(Boolean);
+
         html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
-        html += '<div class="card-title">' + escHtml(ref) + '</div>';
-        html += '<div class="card-text">' + escHtml(r.text || 'Not found in graph') + '</div>';
+        html += '<div class="card-title">Result</div>';
+        html += '<div class="card-ref">' + escHtml(ref) + '</div>';
+        html += '<div class="card-text">' + escHtml(extractText(res.text) || 'Not found in graph') + '</div>';
+        if (confirms.length > 0) {
+          html += '<div class="card-section-label">Confirms</div>';
+          html += '<div class="card-ref-list">' + confirms.map(h => '<span class="card-ref-tag hyp">' + escHtml(h.ref || '') + ' <small>(' + (h.status || '?') + ')</small></span>').join('') + '</div>';
+        }
+        if (sessions.length > 0) {
+          html += '<div class="card-origin">Recorded in ' + sessionLink(sessions[0]) + '</div>';
+        }
         html += '</div>';
 
       } else if (type === 'obs') {
         barColor = '#6b7084';
-        const o = (data[0] && data[0].result && data[0].result[0]) || {};
+        const obs = r(0);
+        const sessions = (r(1).sessions || []).filter(Boolean);
+
         html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
-        html += '<div class="card-title">' + escHtml(ref) + '</div>';
-        html += '<div class="card-text">' + escHtml(o.text || 'Not found in graph') + '</div>';
+        html += '<div class="card-title">Observation</div>';
+        html += '<div class="card-ref">' + escHtml(ref) + '</div>';
+        html += '<div class="card-text">' + escHtml(extractText(obs.text) || 'Not found in graph') + '</div>';
+        if (sessions.length > 0) {
+          html += '<div class="card-origin">Observed in ' + sessionLink(sessions[0]) + '</div>';
+        }
         html += '</div>';
 
       } else if (type === 'trt') {
         barColor = '#c06060';
-        const t = (data[0] && data[0].result && data[0].result[0]) || {};
+        const tp = r(0);
+        const sessions = (r(1).sessions || []).filter(Boolean);
+
         html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
-        html += '<div class="card-title">' + escHtml(ref) + '</div>';
-        html += '<div class="card-text">' + escHtml(t.text || 'Not found in graph') + '</div>';
+        html += '<div class="card-title">Trait Proposal</div>';
+        html += '<div class="card-ref">' + escHtml(ref) + '</div>';
+        html += '<div class="card-text">' + escHtml(extractText(tp.text) || 'Not found in graph') + '</div>';
+        if (sessions.length > 0) {
+          html += '<div class="card-origin">Proposed in ' + sessionLink(sessions[0]) + '</div>';
+        }
         html += '</div>';
 
       } else if (type === 'trait') {
-        const trait = (data[0] && data[0].result && data[0].result[0]) || {};
-        const count = (data[1] && data[1].result && data[1].result[0]) ? data[1].result[0].total : '?';
+        const trait = r(0);
+        const count = r(1).total || '?';
+        const sampleEntities = (r(2).sample_entities || []).filter(Boolean);
         const group = TRAIT_GROUPS[ref] || 'abstract';
         const groupColors = { physical: '#c06060', functional: '#5a9e6f', abstract: '#c9a24d', social: '#b478c8' };
         barColor = groupColors[group] || '#c9a24d';
+        const bitNum = trait.bit || '?';
+        // Show position in the 32-bit layout
+        const quadrant = group.charAt(0).toUpperCase() + group.slice(1);
+
         html = '<div class="card-bar" style="background:' + barColor + '"></div><div class="card-body">';
         html += '<div class="card-title">' + escHtml(ref) + '</div>';
-        html += '<div class="card-meta"><span>bit ' + (trait.bit || '?') + '</span><span>' + group + '</span><span>' + count + ' entities</span></div>';
+        if (trait.description) {
+          html += '<div class="card-text" style="margin-bottom:0.5rem;font-style:italic">' + escHtml(trait.description) + '</div>';
+        }
+        html += '<div class="card-meta">';
+        html += '<span style="color:' + barColor + '">' + quadrant + '</span>';
+        html += '<span>bit ' + bitNum + ' of 32</span>';
+        html += '<span>' + count + ' entities</span>';
+        html += '</div>';
+        // Single-bit matrix showing this trait's position
+        html += '<div class="bit-matrix" style="margin:0.5rem 0">';
+        for (let i = 0; i < 32; i++) {
+          const g = i < 8 ? 'physical' : i < 16 ? 'functional' : i < 24 ? 'abstract' : 'social';
+          const isThis = (i + 1) === bitNum;
+          const cls = isThis ? ' active-' + g : '';
+          html += '<div class="bit-cell' + cls + '" title="' + TRAIT_NAMES[i] + '" style="' + (isThis ? 'outline:1px solid var(--text-bright);' : '') + '"></div>';
+        }
+        html += '</div>';
+        if (sampleEntities.length > 0) {
+          html += '<div class="card-section-label">Example entities</div>';
+          html += '<div class="card-count">' + sampleEntities.slice(0, 8).map(n => escHtml(n)).join(', ') + (sampleEntities.length > 8 ? ', ...' : '') + '</div>';
+        }
         html += '</div>';
 
       } else if (type === 'entity') {
-        const ent = (data[0] && data[0].result && data[0].result[0]) || {};
+        const ent = r(0);
         const traitData = (data[1] && data[1].result && data[1].result[0]) || {};
-        const traits = (traitData.traits || []).filter(Boolean);
-        // Deduplicate traits
-        const uniqueTraits = [...new Set(traits)];
+        const rawTraits = (traitData.traits || []).filter(Boolean);
+        // Deduplicate and group traits
+        const seen = new Set();
+        const grouped = { physical: [], functional: [], abstract: [], social: [] };
+        rawTraits.forEach(t => {
+          const name = t.name || t;
+          const group = t.group_name || TRAIT_GROUPS[name] || '';
+          if (!seen.has(name)) {
+            seen.add(name);
+            if (grouped[group]) grouped[group].push(name);
+          }
+        });
 
         html = '<div class="card-bar" style="background:#c9a24d"></div><div class="card-body">';
         html += '<div class="card-title">' + escHtml(ent.name || ref) + '</div>';
         if (ent.hex) {
-          html += '<div class="card-meta"><span>' + ent.hex + '</span><span>popcount ' + (ent.popcount || '?') + '</span></div>';
+          html += '<div class="card-meta"><span style="letter-spacing:0.05em">' + ent.hex + '</span><span>popcount ' + (ent.popcount || '?') + '</span></div>';
           html += renderBitMatrix(ent.hex);
         }
         if (ent.description) {
-          html += '<div class="card-text" style="margin-bottom:0.5rem">' + escHtml(ent.description) + '</div>';
+          html += '<div class="card-text" style="margin:0.5rem 0">' + escHtml(ent.description) + '</div>';
         }
-        if (uniqueTraits.length > 0) {
-          html += '<div class="card-traits">';
-          uniqueTraits.forEach(t => {
-            html += '<span class="card-trait" data-group="' + (TRAIT_GROUPS[t] || '') + '">' + escHtml(t) + '</span>';
-          });
-          html += '</div>';
-        }
+        // Show traits grouped by quadrant
+        ['physical','functional','abstract','social'].forEach(g => {
+          if (grouped[g].length > 0) {
+            html += '<div class="card-traits">';
+            grouped[g].forEach(t => {
+              html += '<span class="card-trait" data-group="' + g + '">' + escHtml(t) + '</span>';
+            });
+            html += '</div>';
+          }
+        });
         html += '</div>';
       }
 
@@ -914,6 +1131,35 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       if (e.key === 'Escape') closeCard();
     });
 
+    // Strip {{type:ref}} tags — replace with clean spans
+    function stripTagsFn(root) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      const tagRe = /\{\{(hex|entity|trait|hyp|res|obs|trt):([^}]+)\}\}/g;
+      nodes.forEach(node => {
+        if (!tagRe.test(node.textContent)) return;
+        tagRe.lastIndex = 0;
+        const text = node.textContent;
+        const frag = document.createDocumentFragment();
+        let cursor = 0, m;
+        while ((m = tagRe.exec(text)) !== null) {
+          if (m.index > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, m.index)));
+          const span = document.createElement('span');
+          span.dataset.graphType = m[1];
+          span.dataset.graphRef = m[2];
+          span.textContent = m[2];
+          frag.appendChild(span);
+          cursor = m.index + m[0].length;
+        }
+        if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+        node.parentNode.replaceChild(frag, node);
+      });
+    }
+    // Run on load
+    const entryBody = document.querySelector('.entry-body');
+    if (entryBody) stripTagsFn(entryBody);
+
     // Toggle button
     const btn = document.getElementById('enrich-toggle');
     if (btn) {
@@ -923,6 +1169,12 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
         this.textContent = 'loading...';
         try {
           await prefetch();
+          // Activate pre-tagged spans from {{type:ref}} markup
+          document.querySelectorAll('[data-graph-type]').forEach(span => {
+            span.classList.add('enriched');
+            span.dataset.type = span.dataset.graphType;
+            span.dataset.ref = span.dataset.graphRef;
+          });
           enrichText();
           enriched = true;
           this.textContent = 'enriched';
