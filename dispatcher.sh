@@ -170,6 +170,10 @@ else
       log "Site deployed to $SERVE_DIR"
 
       ENTRY_URL="https://journal.universalhex.org/posts/${FILENAME%.md}/"
+
+      # --- Ingest into SurrealDB research graph ---
+      bash /opt/uht-loop/surrealdb/post-session-ingest.sh "$SESSION_N" "$CLEANED_FILE" >> "$LOG_FILE" 2>&1 || log "WARNING: SurrealDB ingestion failed"
+
       ELAPSED=$(( $(date +%s) - $(date -d "$SESSION_START" +%s 2>/dev/null || echo "0") ))
 
       # Single completion message — plain text, no Markdown escaping issues

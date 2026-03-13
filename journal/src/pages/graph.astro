@@ -1,0 +1,607 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Research Graph">
+  <div class="graph-page">
+    <div class="graph-header">
+      <h2 class="graph-title">Research Knowledge Graph</h2>
+      <p class="graph-subtitle">Interactive map of sessions, hypotheses, results, and their connections</p>
+    </div>
+
+    <div class="controls">
+      <div class="control-row">
+        <input type="text" id="search" placeholder="Search sessions, hypotheses..." class="search-input" />
+        <select id="filter-type" class="filter-select">
+          <option value="all">All types</option>
+          <option value="session">Sessions</option>
+          <option value="hypothesis">Hypotheses</option>
+          <option value="result">Results</option>
+          <option value="observation">Observations</option>
+          <option value="trait_proposal">Trait proposals</option>
+          <option value="fact">Facts</option>
+        </select>
+        <select id="filter-task" class="filter-select">
+          <option value="all">All task classes</option>
+          <option value="CALIBRATION">Calibration</option>
+          <option value="APPLICATION">Application</option>
+          <option value="CORPUS_EXPANSION">Corpus expansion</option>
+          <option value="INTEGRITY">Integrity</option>
+          <option value="TRACE_GAP">Trace gap</option>
+        </select>
+        <button id="btn-full" class="btn">Full graph</button>
+        <button id="btn-recent" class="btn btn-active">Recent</button>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="graph-container">
+      <svg id="graph"></svg>
+      <div class="detail-panel" id="detail-panel">
+        <button class="detail-close" id="detail-close">&times;</button>
+        <div id="detail-content"></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="legend-item"><span class="dot" style="background: #c9a24d"></span> Session</span>
+      <span class="legend-item"><span class="dot" style="background: #6b8adb"></span> Hypothesis</span>
+      <span class="legend-item"><span class="dot" style="background: #5a9e6f"></span> Result</span>
+      <span class="legend-item"><span class="dot" style="background: #6b7084"></span> Observation</span>
+      <span class="legend-item"><span class="dot" style="background: #c06060"></span> Trait proposal</span>
+      <span class="legend-item"><span class="dot" style="background: #a07d2e"></span> Fact</span>
+    </div>
+  </div>
+
+  <style>
+    .graph-page { margin-bottom: 2rem; }
+
+    .graph-header {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .graph-title {
+      font-family: var(--serif);
+      font-size: 1.4rem;
+      color: var(--text-bright);
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+    .graph-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .controls {
+      margin-bottom: 1rem;
+    }
+    .control-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius);
+      color: var(--text-bright);
+      padding: 0.4rem 0.7rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+    .search-input::placeholder { color: var(--text-faint); }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-dim);
+    }
+    .filter-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 0.4rem 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+    }
+    .btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover { color: var(--text-bright); border-color: var(--accent-dim); }
+    .btn-active { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-glow); }
+
+    .stats {
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .stat-item strong {
+      color: var(--text-bright);
+      font-weight: 600;
+    }
+
+    .graph-container {
+      position: relative;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      height: 560px;
+    }
+    #graph {
+      width: 100%;
+      height: 100%;
+    }
+
+    .detail-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 320px;
+      height: 100%;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-accent);
+      padding: 1rem;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.2s ease;
+      font-size: 0.78rem;
+    }
+    .detail-panel.open { transform: translateX(0); }
+    .detail-close {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.75rem;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .detail-close:hover { color: var(--text-bright); }
+
+    .detail-panel h3 {
+      font-family: var(--serif);
+      font-size: 1rem;
+      color: var(--text-bright);
+      margin-bottom: 0.75rem;
+      padding-right: 1.5rem;
+      line-height: 1.4;
+    }
+    .detail-panel .meta {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      margin-bottom: 0.75rem;
+      line-height: 1.6;
+    }
+    .detail-panel .meta span {
+      display: inline-block;
+      background: var(--bg-hover);
+      border-radius: 2px;
+      padding: 0.1rem 0.4rem;
+      margin-right: 0.3rem;
+      margin-bottom: 0.2rem;
+    }
+    .detail-panel .body-text {
+      color: var(--text);
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .detail-panel .connections {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .detail-panel .conn-item {
+      display: block;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 0.2rem 0;
+      font-size: 0.72rem;
+    }
+    .detail-panel .conn-item:hover { color: var(--text-bright); }
+
+    .legend {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .node-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      fill: #6b7084;
+      pointer-events: none;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      z-index: 10;
+    }
+
+    @media (max-width: 600px) {
+      .graph-container { height: 400px; }
+      .detail-panel { width: 100%; }
+    }
+  </style>
+
+  <script is:inline src="https://d3js.org/d3.v7.min.js"></script>
+  <script is:inline>
+  (function() {
+    const API = '/api/graph';
+    const COLORS = {
+      session: '#c9a24d',
+      hypothesis: '#6b8adb',
+      result: '#5a9e6f',
+      observation: '#6b7084',
+      trait_proposal: '#c06060',
+      fact: '#a07d2e',
+    };
+    const RADIUS = {
+      session: 8,
+      hypothesis: 6,
+      result: 5,
+      observation: 5,
+      trait_proposal: 5,
+      fact: 4,
+    };
+
+    let allNodes = [], allLinks = [], simulation, svg, g, linkG, nodeG, labelG;
+    let currentView = 'recent';
+
+    async function query(sql) {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain', 'Accept': 'application/json' },
+        body: sql,
+      });
+      const data = await res.json();
+      return data.map(d => d.result);
+    }
+
+    async function loadStats() {
+      const results = await query(
+        'SELECT count() as total FROM session GROUP ALL;' +
+        'SELECT count() as total FROM hypothesis GROUP ALL;' +
+        'SELECT count() as total FROM result GROUP ALL;' +
+        'SELECT count() as total FROM observation GROUP ALL;' +
+        'SELECT count() as total FROM trait_proposal GROUP ALL;' +
+        'SELECT count() as total FROM fact GROUP ALL;' +
+        'SELECT count() as total FROM produced GROUP ALL;'
+      );
+      const el = document.getElementById('stats');
+      const v = i => (results[i] && results[i][0]) ? results[i][0].total : 0;
+      el.innerHTML = [
+        `<span class="stat-item"><strong>${v(0)}</strong> sessions</span>`,
+        `<span class="stat-item"><strong>${v(1)}</strong> hypotheses</span>`,
+        `<span class="stat-item"><strong>${v(2)}</strong> results</span>`,
+        `<span class="stat-item"><strong>${v(3)}</strong> observations</span>`,
+        `<span class="stat-item"><strong>${v(4)}</strong> trait proposals</span>`,
+        `<span class="stat-item"><strong>${v(5)}</strong> facts</span>`,
+        `<span class="stat-item"><strong>${v(6)}</strong> edges</span>`,
+      ].join('');
+    }
+
+    async function loadGraph(mode, searchTerm, filterType, filterTask) {
+      let sessionQuery, nodeQueries, edgeQuery;
+
+      if (searchTerm) {
+        sessionQuery = `SELECT id, number, title, task_class, date FROM session WHERE title ~ '${searchTerm.replace(/'/g, "\\'")}' OR body ~ '${searchTerm.replace(/'/g, "\\'")}' ORDER BY number DESC LIMIT 30;`;
+      } else if (mode === 'full') {
+        sessionQuery = 'SELECT id, number, title, task_class, date FROM session ORDER BY number DESC LIMIT 60;';
+      } else {
+        sessionQuery = 'SELECT id, number, title, task_class, date FROM session ORDER BY number DESC LIMIT 20;';
+      }
+
+      const results = await query(
+        sessionQuery +
+        'SELECT id, ref, status, text FROM hypothesis;' +
+        'SELECT id, ref, text FROM result;' +
+        'SELECT id, ref, text FROM observation;' +
+        'SELECT id, ref, text FROM trait_proposal;' +
+        'SELECT id, subject, predicate, object FROM fact;' +
+        'SELECT in, out FROM produced;' +
+        'SELECT in, out FROM confirmed_by;' +
+        'SELECT in, out FROM proposed_trait;'
+      );
+
+      const sessions = results[0] || [];
+      const hypotheses = results[1] || [];
+      const resResults = results[2] || [];
+      const observations = results[3] || [];
+      const traitProposals = results[4] || [];
+      const facts = results[5] || [];
+      const producedEdges = results[6] || [];
+      const confirmedEdges = results[7] || [];
+      const traitEdges = results[8] || [];
+
+      const sessionIds = new Set(sessions.map(s => s.id));
+      const nodes = [];
+      const nodeMap = {};
+      const links = [];
+
+      // Add session nodes
+      sessions.forEach(s => {
+        if (filterTask !== 'all' && s.task_class !== filterTask) return;
+        const n = { id: s.id, type: 'session', label: `#${s.number}`, title: s.title, data: s };
+        nodes.push(n);
+        nodeMap[s.id] = n;
+      });
+
+      // Build edges and collect connected node IDs
+      const connectedIds = new Set();
+      const allEdges = [
+        ...producedEdges.map(e => ({ source: e.in, target: e.out, type: 'produced' })),
+        ...confirmedEdges.map(e => ({ source: e.in, target: e.out, type: 'confirmed_by' })),
+        ...traitEdges.map(e => ({ source: e.in, target: e.out, type: 'proposed_trait' })),
+      ];
+
+      allEdges.forEach(e => {
+        if (nodeMap[e.source]) connectedIds.add(e.target);
+        if (nodeMap[e.target]) connectedIds.add(e.source);
+      });
+
+      // Add connected hypotheses, results, etc.
+      const addNodes = (items, type, labelFn) => {
+        items.forEach(item => {
+          if (filterType !== 'all' && filterType !== type && filterType !== 'session') return;
+          if (connectedIds.has(item.id) || filterType === type) {
+            if (!nodeMap[item.id]) {
+              const n = { id: item.id, type, label: labelFn(item), data: item };
+              nodes.push(n);
+              nodeMap[item.id] = n;
+            }
+          }
+        });
+      };
+
+      addNodes(hypotheses, 'hypothesis', h => h.ref.replace('HYP-ACTIVEHYPOTHESES-', 'H').replace('HYP-CLOSEDHYPOTHESES-', 'Hc'));
+      addNodes(resResults, 'result', r => r.ref.replace('RES-CALIBRATIONRESULTS-', 'R'));
+      addNodes(observations, 'observation', o => o.ref.replace('OBS-RESEARCHGAPS-', 'O').replace('OBS-STRUCTURALFINDINGS-', 'Os'));
+      addNodes(traitProposals, 'trait_proposal', t => t.ref.replace('TRT-PROPOSEDTRAITS-', 'T'));
+
+      // Build final links
+      allEdges.forEach(e => {
+        if (nodeMap[e.source] && nodeMap[e.target]) {
+          links.push({ source: e.source, target: e.target, type: e.type });
+        }
+      });
+
+      allNodes = nodes;
+      allLinks = links;
+      renderGraph();
+    }
+
+    function renderGraph() {
+      const container = document.querySelector('.graph-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      svg.attr('viewBox', [0, 0, width, height]);
+      g.selectAll('*').remove();
+
+      linkG = g.append('g').attr('class', 'links');
+      nodeG = g.append('g').attr('class', 'nodes');
+      labelG = g.append('g').attr('class', 'labels');
+
+      const link = linkG.selectAll('line')
+        .data(allLinks)
+        .join('line')
+        .attr('stroke', '#1e2230')
+        .attr('stroke-width', 1)
+        .attr('stroke-opacity', 0.6);
+
+      const node = nodeG.selectAll('circle')
+        .data(allNodes)
+        .join('circle')
+        .attr('r', d => RADIUS[d.type] || 5)
+        .attr('fill', d => COLORS[d.type] || '#666')
+        .attr('stroke', '#0c0e13')
+        .attr('stroke-width', 1)
+        .attr('cursor', 'pointer')
+        .on('click', (e, d) => showDetail(d))
+        .on('mouseover', function(e, d) {
+          d3.select(this).attr('stroke', '#eeeef2').attr('stroke-width', 2);
+          // Highlight connected
+          link.attr('stroke', l => (l.source.id === d.id || l.target.id === d.id) ? '#c9a24d' : '#1e2230')
+              .attr('stroke-width', l => (l.source.id === d.id || l.target.id === d.id) ? 2 : 1);
+        })
+        .on('mouseout', function() {
+          d3.select(this).attr('stroke', '#0c0e13').attr('stroke-width', 1);
+          link.attr('stroke', '#1e2230').attr('stroke-width', 1);
+        })
+        .call(d3.drag()
+          .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+          .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+          .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+        );
+
+      const label = labelG.selectAll('text')
+        .data(allNodes)
+        .join('text')
+        .attr('class', 'node-label')
+        .attr('text-anchor', 'middle')
+        .attr('dy', d => -(RADIUS[d.type] || 5) - 4)
+        .text(d => d.label);
+
+      simulation = d3.forceSimulation(allNodes)
+        .force('link', d3.forceLink(allLinks).id(d => d.id).distance(50))
+        .force('charge', d3.forceManyBody().strength(-80))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => (RADIUS[d.type] || 5) + 3))
+        .on('tick', () => {
+          link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+          node
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
+          label
+            .attr('x', d => d.x)
+            .attr('y', d => d.y);
+        });
+
+      // Zoom
+      const zoom = d3.zoom()
+        .scaleExtent([0.3, 5])
+        .on('zoom', e => g.attr('transform', e.transform));
+      svg.call(zoom);
+    }
+
+    function showDetail(node) {
+      const panel = document.getElementById('detail-panel');
+      const content = document.getElementById('detail-content');
+      panel.classList.add('open');
+
+      let html = '';
+      const d = node.data;
+
+      if (node.type === 'session') {
+        html = `
+          <h3>${d.title || 'Session ' + d.number}</h3>
+          <div class="meta">
+            <span>#${d.number}</span>
+            <span>${d.task_class || ''}</span>
+            <span>${d.date || ''}</span>
+          </div>
+        `;
+        // Load full body
+        query(`SELECT body FROM session:s${d.number};`).then(res => {
+          const body = res[0] && res[0][0] ? res[0][0].body : '';
+          const bodyEl = content.querySelector('.body-text');
+          if (bodyEl) bodyEl.textContent = body.substring(0, 1500) + (body.length > 1500 ? '\n...' : '');
+        });
+        // Load connections
+        query(`SELECT ->produced->hypothesis.ref AS h, ->produced->result.ref AS r, ->produced->observation.ref AS o, ->proposed_trait->trait_proposal.ref AS t FROM session:s${d.number};`)
+          .then(res => {
+            const c = res[0] && res[0][0] ? res[0][0] : {};
+            const connEl = content.querySelector('.connections');
+            if (!connEl) return;
+            let connHtml = '<strong>Connections:</strong><br>';
+            (c.h || []).filter(Boolean).forEach(r => { connHtml += `<span class="conn-item">${r}</span>`; });
+            (c.r || []).filter(Boolean).forEach(r => { connHtml += `<span class="conn-item">${r}</span>`; });
+            (c.o || []).filter(Boolean).forEach(r => { connHtml += `<span class="conn-item">${r}</span>`; });
+            (c.t || []).filter(Boolean).forEach(r => { connHtml += `<span class="conn-item">${r}</span>`; });
+            connEl.innerHTML = connHtml;
+          });
+        html += '<div class="body-text">Loading...</div><div class="connections"></div>';
+      } else if (node.type === 'hypothesis') {
+        html = `
+          <h3>${d.ref}</h3>
+          <div class="meta"><span>${d.status || 'active'}</span></div>
+          <div class="body-text">${d.text || ''}</div>
+        `;
+      } else if (node.type === 'result') {
+        html = `
+          <h3>${d.ref}</h3>
+          <div class="body-text">${d.text || ''}</div>
+        `;
+      } else if (node.type === 'observation') {
+        html = `
+          <h3>${d.ref}</h3>
+          <div class="body-text">${d.text || ''}</div>
+        `;
+      } else if (node.type === 'trait_proposal') {
+        html = `
+          <h3>${d.ref}</h3>
+          <div class="body-text">${d.text || ''}</div>
+        `;
+      } else if (node.type === 'fact') {
+        html = `
+          <h3>${d.predicate}</h3>
+          <div class="meta"><span>${d.subject}</span></div>
+          <div class="body-text">${d.object || ''}</div>
+        `;
+      }
+
+      content.innerHTML = html;
+    }
+
+    function init() {
+      svg = d3.select('#graph');
+      g = svg.append('g');
+
+      document.getElementById('detail-close').addEventListener('click', () => {
+        document.getElementById('detail-panel').classList.remove('open');
+      });
+
+      let searchTimeout;
+      document.getElementById('search').addEventListener('input', e => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          const term = e.target.value.trim();
+          const type = document.getElementById('filter-type').value;
+          const task = document.getElementById('filter-task').value;
+          loadGraph(currentView, term, type, task);
+        }, 400);
+      });
+
+      document.getElementById('filter-type').addEventListener('change', () => reload());
+      document.getElementById('filter-task').addEventListener('change', () => reload());
+
+      document.getElementById('btn-recent').addEventListener('click', function() {
+        currentView = 'recent';
+        this.classList.add('btn-active');
+        document.getElementById('btn-full').classList.remove('btn-active');
+        reload();
+      });
+
+      document.getElementById('btn-full').addEventListener('click', function() {
+        currentView = 'full';
+        this.classList.add('btn-active');
+        document.getElementById('btn-recent').classList.remove('btn-active');
+        reload();
+      });
+
+      function reload() {
+        const term = document.getElementById('search').value.trim();
+        const type = document.getElementById('filter-type').value;
+        const task = document.getElementById('filter-task').value;
+        loadGraph(currentView, term, type, task);
+      }
+
+      loadStats();
+      loadGraph('recent', '', 'all', 'all');
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+  </script>
+</Base>
