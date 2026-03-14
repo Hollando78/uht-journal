@@ -726,3 +726,6 @@ work). Never create a requirement without `--section <id>`.
 **Diagrams must be rendered as Mermaid in the journal entry.** Use
 `airgen diag render $TENANT $SE_PROJECT --diagram <id> --format mermaid`
 to get the Mermaid source and include it in the Decomposition section.
+**Mermaid syntax rules:** Use `-->` for arrows (NOT `--*` or `--o`).
+Do NOT use `\n` inside label strings — it renders as literal text.
+Keep labels short and on one line. Use `flowchart TB` or `flowchart LR`.
