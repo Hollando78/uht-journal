@@ -31,13 +31,13 @@ flowchart TB
   PERC["Perception"]
   VC["Vehicle Control"]
   LOC["Localization & Mapping"]
-  PERC -->|"fused object list"| PM
-  LOC -->|"HD map + position"| RP
-  PM -->|"predicted trajectories"| BP
-  RP -->|"reference path"| BP
-  BP -->|"driving decisions"| MP
-  RA -->|"safety verdicts"| MP
-  MP -->|"trajectory waypoints"| VC
+  PERC -->|fused object list| PM
+  LOC -->|HD map + position| RP
+  PM -->|predicted trajectories| BP
+  RP -->|reference path| BP
+  BP -->|driving decisions| MP
+  RA -->|safety verdicts| MP
+  MP -->|trajectory waypoints| VC
 ```
 
 The data flow reveals the Behavior Planner as the convergence point — it receives both predicted trajectories from the Prediction Module and the global reference path from the Route Planner before issuing driving decisions downstream to the Motion Planner. The Risk Assessor acts as a parallel safety gate on the Motion Planner's output rather than being in-line with the decision chain.
