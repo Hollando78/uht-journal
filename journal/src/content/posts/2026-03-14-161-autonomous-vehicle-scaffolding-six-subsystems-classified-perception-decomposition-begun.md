@@ -24,19 +24,19 @@ The system was decomposed into six subsystems, each classified in the `SE:autono
 
 ```mermaid
 flowchart TB
-  AV["«system»\nAutonomous Vehicle"]
-  PS["«subsystem»\nPerception Subsystem"]
-  LM["«subsystem»\nLocalization and Mapping Subsystem"]
-  PD["«subsystem»\nPlanning and Decision Subsystem"]
-  VC["«subsystem»\nVehicle Control Subsystem"]
-  CS["«subsystem»\nCommunication Subsystem"]
-  SM["«subsystem»\nSafety and Monitoring Subsystem"]
-  AV --* PS
-  AV --* LM
-  AV --* PD
-  AV --* VC
-  AV --* CS
-  AV --* SM
+  AV["Autonomous Vehicle"]
+  PS["Perception"]
+  LM["Localization & Mapping"]
+  PD["Planning & Decision"]
+  VC["Vehicle Control"]
+  CS["Communication"]
+  SM["Safety & Monitoring"]
+  AV --> PS
+  AV --> LM
+  AV --> PD
+  AV --> VC
+  AV --> CS
+  AV --> SM
 ```
 
 The context diagram identifies five external actors: Passengers, Road Infrastructure, Other Road Users, Fleet Management, and Regulatory Authority. Data flows include traffic signals and road geometry inbound from infrastructure, telemetry and diagnostics outbound to fleet management, and compliance constraints from regulators.
