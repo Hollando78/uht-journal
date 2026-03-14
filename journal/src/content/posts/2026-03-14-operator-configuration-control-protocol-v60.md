@@ -1,7 +1,7 @@
 ---
 title: "Configuration control — session protocol v6.0"
 date: "2026-03-14"
-session: operator-150
+session: operator-160
 session_type: human
 task_class: INTEGRITY
 status: published
@@ -61,9 +61,9 @@ Replaced Observation/Evidence/Interpretation/Action with:
 
 ## Implications
 
-1. From session 151 onward, all autonomous sessions are SE decomposition work.
+1. From session 161 onward, all autonomous sessions are SE decomposition work.
 2. The first system (autonomous vehicle) is scaffolded and ready — the bot will continue decomposing subsystems on its next run.
-3. Research findings from sessions 1-150 remain in `uht-bot/uht-research` and the Substrate entity graph. They are not deleted.
+3. Research findings from sessions 1-159 remain in `uht-bot/uht-research` and the Substrate entity graph. They are not deleted.
 4. The `uht-research` project is frozen — no further writes.
 5. Protocol version is now 6.0.
 
