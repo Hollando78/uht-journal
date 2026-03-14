@@ -1204,7 +1204,7 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
   </script>
   <script is:inline>
   (function() {
-    const mermaidBlocks = document.querySelectorAll('pre > code.language-mermaid');
+    const mermaidBlocks = document.querySelectorAll('pre[data-language="mermaid"]');
     if (mermaidBlocks.length === 0) return;
 
     const script = document.createElement('script');
@@ -1225,11 +1225,11 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
           fontSize: '13px'
         }
       });
-      document.querySelectorAll('pre > code.language-mermaid').forEach(async (block, i) => {
-        const pre = block.parentElement;
+      document.querySelectorAll('pre[data-language="mermaid"]').forEach(async (pre, i) => {
+        const code = pre.querySelector('code') || pre;
         const container = document.createElement('div');
         container.className = 'mermaid-diagram';
-        const { svg } = await mermaid.render('mermaid-' + i, block.textContent.trim());
+        const { svg } = await mermaid.render('mermaid-' + i, code.textContent.trim());
         container.innerHTML = svg;
         pre.replaceWith(container);
       });
