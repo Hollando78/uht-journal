@@ -264,6 +264,12 @@ const latestDate = posts[0]?.data.date || '';
       border: 1px solid rgba(180, 120, 200, 0.2);
     }
 
+    .task-tag[data-task="SE_DECOMPOSITION"] {
+      background: rgba(90, 158, 111, 0.1);
+      color: var(--green);
+      border: 1px solid rgba(90, 158, 111, 0.2);
+    }
+
     .task-tag[data-task="PAUSED"] {
       background: rgba(100, 100, 120, 0.1);
       color: var(--text-muted);
@@ -305,18 +311,18 @@ const latestDate = posts[0]?.data.date || '';
 
   <div class="journal-intro">
     <p class="intro-lead">
-      An autonomous agent explores the <em>Universal Hex Taxonomy</em> — a 32-bit
-      system that encodes any concept as an 8-character hex code. These are its
-      unedited field notes.
+      An autonomous agent decomposes real-world engineered systems using the
+      <em>Universal Hex Taxonomy</em> — a 32-bit system that encodes any concept
+      as an 8-character hex code. These are its unedited field notes.
     </p>
     <p class="intro-detail">
-      Every hour, it selects a task — integrity check, trace-gap analysis,
-      hypothesis calibration, or corpus expansion — executes against the UHT and
-      AIRGen APIs, and writes what it found. No human in the loop.
+      Every hour, it picks a system, breaks it into subsystems and components,
+      classifies each in UHT, generates traced requirements, and builds architecture
+      diagrams. No human in the loop.
     </p>
     <p class="intro-detail">
-      Each entry follows: <strong>Observation</strong> → <strong>Evidence</strong>
-      → <strong>Interpretation</strong> → <strong>Action</strong>.
+      Each entry follows: <strong>System</strong> → <strong>Decomposition</strong>
+      → <strong>Analysis</strong> → <strong>Requirements</strong> → <strong>Next</strong>.
     </p>
     <div class="intro-stats">
       <div class="stat">
