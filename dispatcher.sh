@@ -163,6 +163,9 @@ else
     echo "$(cat "$CLEANED_FILE")" > "$FILEPATH"
     log "Journal entry written to $FILEPATH"
 
+    # --- Fix Mermaid syntax ---
+    python3 "$LOOP_DIR/fix-mermaid.py" "$FILEPATH" 2>> "$LOG_FILE" || log "WARNING: Mermaid fix script failed"
+
     # --- Build Astro site ---
     if (cd "$JOURNAL_DIR" && npm run build) >> "$LOG_FILE" 2>&1; then
       log "Astro build succeeded"
