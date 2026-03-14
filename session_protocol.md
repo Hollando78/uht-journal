@@ -1,7 +1,7 @@
-# Autonomous Session Protocol — universalhex.org research loop
+# Autonomous Session Protocol — Systems Engineering decomposition loop
 # Executed via: claude --print "$(cat session_protocol.md)"
 # CLIs required: airgen-cli, uht-substrate
-# SESSION_PROTOCOL_VERSION: 5.1
+# SESSION_PROTOCOL_VERSION: 6.0
 
 ---
 
@@ -22,28 +22,36 @@ UHT_API_KEY=<token>
 
 Aliases used throughout:
 - `TENANT` = `uht-bot`
-- `PROJECT` = `uht-research`
+- `SE_PROJECT` — loaded dynamically from Substrate fact `CURRENT_SE_PROJECT`
+
+```bash
+SE_PROJECT=$(uht-substrate facts query --predicate CURRENT_SE_PROJECT \
+  --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
+```
 
 ---
 
 ## Two Systems, Two Roles
 
-**UHT Substrate** — the research engine and queryable knowledge base.
-Three layers of data:
+**UHT Substrate** — component classification engine. Every system
+component (subsystem, hardware, software, interface) is classified to
+get its ontological hex code. The namespace `SE:<system-slug>` isolates
+each system's entities. Facts store decomposition relationships:
 
-1. **Entity graph** — every classified entity with its hex code.
-   Populated automatically by `classify`. Currently 2900+ entities.
-2. **Research facts** — structured findings stored as subject-predicate-object
-   triples in the `RESEARCH` namespace. Queryable by predicate, enabling
-   future sessions to build on prior discoveries.
-3. **Operational facts** — session counters, timestamps, directives in
-   the `CLAUDE` namespace. Ephemeral. Overwritten freely.
+- `PART_OF` — component belongs to a subsystem or subsystem belongs to system
+- `CONTAINS` — system or subsystem contains a component
+- `CONNECTS` — interface or data flow between two components
+- `PRODUCES` — component generates an output (data, signal, force, etc.)
 
-**AIRGen** — persistent knowledge store. Every hypothesis, result,
-observation, corpus entry, and trait proposal is a versioned requirement
-in a structured document with trace links. This is the accumulating
-research record. The loop reads AIRGen to build on prior work and writes
-AIRGen to record new findings.
+Operational facts (session counters, project state, directives) live in
+the `CLAUDE` namespace. Overwritten freely.
+
+**AIRGen** — requirements management and architecture diagramming tool.
+Each system gets its own project (`uht-bot/se-<slug>`) with 6 standard
+documents, traced linksets, and block diagrams rendered as Mermaid. This
+is the accumulating engineering record. The loop reads AIRGen to
+understand decomposition progress and writes AIRGen to record
+requirements, architecture decisions, and verification plans.
 
 ### Entity Graph
 
@@ -65,111 +73,30 @@ in the knowledge graph. Use these commands to explore it:
 - `uht-substrate trait-prompts [--format pretty] [--bit N]` — view the
   classification prompt spec, or the full prompt for a specific trait bit.
 
-### Research Facts
+### SE Project Structure
 
-When a session discovers a notable relationship between entities, store
-it as a fact in the `RESEARCH` namespace. This makes findings queryable
-by future sessions — not just recorded as prose in AIRGen.
+Each system decomposition project uses 6 standard documents:
 
-**Predicates to use:**
-
-| Predicate | Subject | Object | When |
-|-----------|---------|--------|------|
-| `HEX_COLLISION` | entity A ↔ entity B | hex code | Two entities share identical (or near-identical ≤2 bit) hex code despite different meanings |
-| `CROSS_DOMAIN_ANALOG` | entity A ↔ entity B | Jaccard: N.NNN, domains: X ↔ Y | Entities from different domains with Jaccard >= 0.70 |
-| `TRAIT_OUTLIER` | entity | trait name | Entity activates a trait none of its domain peers share |
-| `NULL_HEX` | entity | domain | Entity classified as 00000000 |
-| `CLASSIFICATION_DRIFT` | entity | old_hex → new_hex | Re-classification produced different hex code |
-| `FUNCTIONAL_ARCHETYPE` | archetype label | entity1, entity2, ... | Multiple cross-domain entities converging on same functional role |
-
-**Important:** `upsert` keys on subject+predicate, so the same subject
-can only have one fact per predicate. For relationship facts
-(`HEX_COLLISION`, `CROSS_DOMAIN_ANALOG`), use a composite subject with
-`↔` separator: `"entity A ↔ entity B"`. This allows multiple
-relationships per entity.
-
-**Creating a research fact:**
-```bash
-uht-substrate facts upsert "<entity-A> ↔ <entity-B>" CROSS_DOMAIN_ANALOG \
-  "Jaccard: 0.XXX, domains: <domain-A> ↔ <domain-B>" --namespace RESEARCH
-```
-
-**Querying research facts:**
-```bash
-# All hex collisions found so far
-uht-substrate facts query --predicate HEX_COLLISION --namespace RESEARCH
-
-# All cross-domain analogs
-uht-substrate facts query --predicate CROSS_DOMAIN_ANALOG --namespace RESEARCH
-
-# All null-hex entities
-uht-substrate facts query --predicate NULL_HEX --namespace RESEARCH
-```
-
-**Rules:**
-- Always use the `RESEARCH` namespace (not `CLAUDE`) for research findings
-- Use composite `↔` subjects for pairwise relationships
-- Only store findings that meet thresholds (Jaccard >= 0.70, same hex
-  or ≤2 bit distance, drift > 2 bits). Do not store routine similarities.
-- Check existing research facts before storing to avoid duplicates:
-  query by predicate before upserting
-
-### AIRGen Project Structure (uht-bot / uht-research)
-
-| Document         | Code | Purpose                                           |
-|------------------|------|---------------------------------------------------|
-| `hypotheses`     | HYP  | Falsifiable claims with confirmation/refutation criteria |
-| `results`        | RES  | Experimental outcomes linked back to hypotheses    |
-| `observations`   | OBS  | Trace gap findings, drift, orphan analyses         |
-| `corpus-log`     | COR  | Entities added to UHT corpus with classification data |
-| `trait-proposals` | TRT | Proposed trait extensions motivated by results     |
-
-### Document Sections
-
-Every requirement MUST be assigned to a section via `--section <id>`.
-Requirements not in sections will not be found by trace linksets.
-
-| Document         | Section                | Section ID                |
-|------------------|------------------------|---------------------------|
-| `hypotheses`     | Active Hypotheses      | `section-1773068408469`   |
-| `hypotheses`     | Closed Hypotheses      | `section-1773068409161`   |
-| `results`        | Calibration Results    | `section-1773068409701`   |
-| `observations`   | Research Gaps          | `section-1773068410280`   |
-| `observations`   | Structural Findings    | `section-1773068410898`   |
-| `corpus-log`     | Domain Expansions      | `section-1773068411382`   |
-| `trait-proposals` | Proposed Traits       | `section-1773068412170`   |
-
-New hypotheses go in "Active Hypotheses". When a result confirms or
-refutes a hypothesis, move it to "Closed Hypotheses" via
-`airgen reqs update $TENANT $PROJECT <ref> --section section-1773068409161`.
+| Document | Code | Purpose |
+|----------|------|---------|
+| `stakeholder-requirements` | STK | ConOps-level needs and constraints |
+| `system-requirements` | SYS | Top-level system SHALL statements |
+| `subsystem-requirements` | SUB | Per-subsystem requirements |
+| `interface-requirements` | IFC | Interface definitions between components |
+| `architecture-decisions` | ARC | Design rationale and trade-offs |
+| `verification-plan` | VER | How each requirement is verified |
 
 ### Trace Linksets
 
-- `hypotheses` → `results` (derives)
-- `results` → `trait-proposals` (derives)
-- `observations` → `hypotheses` (derives)
+- `stakeholder-requirements` → `system-requirements` (derives)
+- `system-requirements` → `subsystem-requirements` (derives)
+- `system-requirements` → `interface-requirements` (derives)
+- `subsystem-requirements` → `verification-plan` (verifies)
+- `interface-requirements` → `verification-plan` (verifies)
 
 When creating a trace link, use full IDs (not bare refs):
-`airgen trace create $TENANT $PROJECT
---source "uht-bot:uht-research:<SOURCE-REF>" --target "uht-bot:uht-research:<TARGET-REF>" --type derives`.
-
-### Reading Prior Work
-
-Before formulating new hypotheses or observations, **always** read what
-already exists:
-
-```bash
-# Hot tier — active research items (hypotheses, results, proposals, trace-gap obs)
-cat /tmp/active_reqs.json
-
-# Cold tier — corpus coverage index (refs + tags only, no full text)
-cat /tmp/corpus_index.json
-```
-
-Read `/tmp/active_reqs.json` to check existing hypotheses and results
-before formulating new ones. Read `/tmp/corpus_index.json` to check
-domain coverage. This prevents duplicate hypotheses and lets the session
-build on prior findings without consuming context on archived prose.
+`airgen trace create $TENANT $SE_PROJECT
+--source "uht-bot:$SE_PROJECT:<SOURCE-REF>" --target "uht-bot:$SE_PROJECT:<TARGET-REF>" --type derives`.
 
 ---
 
@@ -193,28 +120,20 @@ fi
 
 # 2. AIRGen returns project list for tenant
 SMOKE_AG=$(airgen projects list $TENANT 2>&1)
-if ! echo "$SMOKE_AG" | grep -q "uht-research"; then
-  echo "SMOKE FAIL: airgen projects list does not contain uht-research"
+if [ $? -ne 0 ]; then
+  echo "SMOKE FAIL: airgen projects list failed"
   echo "Got: $SMOKE_AG"
   SMOKE_FAIL=1
 fi
 
-# 3. AIRGen reqs list returns JSON with .data array
-SMOKE_REQS=$(airgen reqs list $TENANT $PROJECT --json --limit 200 2>&1)
-if ! echo "$SMOKE_REQS" | jq -e '.data' > /dev/null 2>&1; then
-  echo "SMOKE FAIL: airgen reqs list --json is not {data:[...]}"
-  echo "Got: $(echo "$SMOKE_REQS" | head -5)"
-  SMOKE_FAIL=1
-fi
-
-# 4. Substrate field name is .object (not .object_value)
+# 3. Substrate field name is .object (not .object_value)
 SMOKE_FIELD=$(echo "$SMOKE_SUB" | jq -r '.facts[0].object // "MISSING"')
 if [ "$SMOKE_FIELD" = "MISSING" ] || [ -z "$SMOKE_FIELD" ]; then
   echo "SMOKE FAIL: .facts[0].object field missing — check if field name has changed"
   SMOKE_FAIL=1
 fi
 
-# 5. Entity graph is populated and queryable
+# 4. Entity graph is populated and queryable
 SMOKE_ENT=$(uht-substrate entities list --limit 1 2>&1)
 if ! echo "$SMOKE_ENT" | jq -e '.entities[0].hex_code' > /dev/null 2>&1; then
   echo "SMOKE FAIL: entities list returned no entities"
@@ -249,907 +168,381 @@ DIRECTIVE_ID=$(uht-substrate facts query --predicate PENDING_DIRECTIVE \
 [ -n "$DIRECTIVE_ID" ] && [ "$DIRECTIVE_ID" != "null" ] && \
   uht-substrate facts delete "$DIRECTIVE_ID"
 
-# Check for integrity alert
-ALERT=$(uht-substrate facts query --predicate INTEGRITY_ALERT \
-  --namespace CLAUDE 2>/dev/null | \
-  jq -r '.facts[0].object // ""')
+# Load SE project state
+SE_PROJECT=$(uht-substrate facts query --predicate CURRENT_SE_PROJECT \
+  --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
+SE_SYSTEM=$(uht-substrate facts query --predicate CURRENT_SE_SYSTEM \
+  --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
+SE_NAMESPACE=$(uht-substrate facts query --predicate CURRENT_SE_NAMESPACE \
+  --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
 
-# Load existing AIRGen requirements — two-tier split to manage context
-# Full dump goes to disk; session reads hot tier (active items) and
-# cold tier (corpus-log refs only, no full text)
-airgen reqs list $TENANT $PROJECT --json --limit 100 2>/dev/null | jq '.data // []' > /tmp/all_reqs.json
-EXISTING_COUNT=$(jq 'length' /tmp/all_reqs.json 2>/dev/null || echo 0)
+if [ -n "$SE_PROJECT" ]; then
+  # Load existing project state
+  airgen docs list $TENANT $SE_PROJECT 2>/dev/null
+  airgen reqs list $TENANT $SE_PROJECT --json --limit 200 2>/dev/null | jq '.data // []' > /tmp/se_reqs.json
+  SE_REQ_COUNT=$(jq 'length' /tmp/se_reqs.json 2>/dev/null || echo 0)
+  echo "SE project: $SE_PROJECT ($SE_REQ_COUNT requirements)"
 
-# Hot tier: hypotheses, results, trait proposals, trace-gap observations (full text)
-jq '[.[] | select(.tags // [] | any(. == "hypothesis" or . == "result" or . == "trait-proposal" or . == "trace-gap"))]' \
-  /tmp/all_reqs.json > /tmp/active_reqs.json
-ACTIVE_COUNT=$(jq 'length' /tmp/active_reqs.json 2>/dev/null || echo 0)
-
-# Cold tier: corpus-log and structural findings (refs + tags only, no text)
-jq '[.[] | select(.tags // [] | any(. == "corpus-expansion" or . == "structural-finding" or . == "integrity")) | {ref, tags, title}]' \
-  /tmp/all_reqs.json > /tmp/corpus_index.json
-ARCHIVE_COUNT=$(jq 'length' /tmp/corpus_index.json 2>/dev/null || echo 0)
-
-echo "AIRGen: $EXISTING_COUNT total, $ACTIVE_COUNT active (full text), $ARCHIVE_COUNT archived (refs only)"
+  # Check decomposition progress
+  uht-substrate facts query --namespace "$SE_NAMESPACE" 2>/dev/null | \
+    jq '.facts // []' > /tmp/se_facts.json
+  SE_FACT_COUNT=$(jq 'length' /tmp/se_facts.json 2>/dev/null || echo 0)
+  echo "SE namespace: $SE_NAMESPACE ($SE_FACT_COUNT facts)"
+fi
 
 # Load entity graph stats
 ENTITY_COUNT=$(uht-substrate entities list --limit 1 2>/dev/null | \
   jq -r '.total // 0')
 echo "Entity graph contains $ENTITY_COUNT entities"
-
-# Load research facts (queryable findings from prior sessions)
-uht-substrate facts query --namespace RESEARCH 2>/dev/null | \
-  jq '.facts // []' > /tmp/research_facts.json
-RESEARCH_FACT_COUNT=$(jq 'length' /tmp/research_facts.json 2>/dev/null || echo 0)
-echo "Research knowledge base contains $RESEARCH_FACT_COUNT facts"
 ```
 
 ---
 
-## Phase 2: Select Task Class
+## Phase 2: Select System
 
 ```bash
-LAST_TASK=$(uht-substrate facts query --predicate LAST_TASK_CLASS \
+DECOMP_TARGET=$(uht-substrate facts query --predicate DECOMPOSITION_TARGET \
   --namespace CLAUDE 2>/dev/null | \
   jq -r '.facts[0].object // ""')
+DECOMP_TARGET_ID=$(uht-substrate facts query --predicate DECOMPOSITION_TARGET \
+  --namespace CLAUDE 2>/dev/null | \
+  jq -r '.facts[0].uuid // ""')
 
-LAST_TG=$(uht-substrate facts query --predicate LAST_TRACE_GAP_RUN \
+DECOMP_STATUS=$(uht-substrate facts query --predicate DECOMPOSITION_STATUS \
   --namespace CLAUDE 2>/dev/null | \
   jq -r '.facts[0].object // ""')
-
-LAST_CAL=$(uht-substrate facts query --predicate LAST_CALIBRATION_RUN \
-  --namespace CLAUDE 2>/dev/null | \
-  jq -r '.facts[0].object // ""')
-
-LAST_APP=$(uht-substrate facts query --predicate LAST_APPLICATION_RUN \
-  --namespace CLAUDE 2>/dev/null | \
-  jq -r '.facts[0].object // ""')
-
-LAST_CORPUS=$(uht-substrate facts query --predicate LAST_CORPUS_RUN \
-  --namespace CLAUDE 2>/dev/null | \
-  jq -r '.facts[0].object // ""')
-
-# Check for queued hypothesis — forces CALIBRATION
-OPEN_HYP=$(uht-substrate facts query --predicate OPEN_HYPOTHESIS \
-  --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
-
-# Helper: compute hours elapsed since an ISO timestamp
-hours_since() {
-  local ts="$1"
-  [ -z "$ts" ] && echo "9999" && return
-  local then_epoch=$(date -d "$ts" +%s 2>/dev/null || echo 0)
-  local now_epoch=$(date +%s)
-  echo $(( (now_epoch - then_epoch) / 3600 ))
-}
-
-TG_HOURS=$(hours_since "$LAST_TG")
-CAL_HOURS=$(hours_since "$LAST_CAL")
-APP_HOURS=$(hours_since "$LAST_APP")
-CORPUS_HOURS=$(hours_since "$LAST_CORPUS")
 ```
 
-If `$DIRECTIVE` contains `TASK:<class>`, use that class. If `$DIRECTIVE`
-contains `PAUSE`, write a minimal journal entry and exit.
+If `$DIRECTIVE` contains `PAUSE`, write a minimal journal entry and exit.
 
-Otherwise, select the first matching class in priority order:
+**Selection logic (first match wins):**
 
-1. **CALIBRATION** — if `$OPEN_HYP` is non-empty (queued hypothesis waiting)
-2. **INTEGRITY** — if `$ALERT` non-empty, OR `$SESSION_N % 20 == 0`
-3. **CALIBRATION** — if `$LAST_TASK != CALIBRATION` AND `$CAL_HOURS >= 3`
-4. **APPLICATION** — if `$LAST_TASK != APPLICATION` AND `$APP_HOURS >= 6`
-5. **TRACE_GAP** — if `$LAST_TASK != TRACE_GAP` AND `$TG_HOURS >= 8`
-6. **CORPUS_EXPANSION** — if `$LAST_TASK != CORPUS_EXPANSION` AND `$CORPUS_HOURS >= 12`
-7. **CALIBRATION** — default fallback
+1. **Operator-queued system** — if `$DECOMP_TARGET` is non-empty, use
+   that system. Consume the fact after reading.
+2. **Continue current system** — if `$SE_PROJECT` is non-empty and
+   `$DECOMP_STATUS` is not `complete`, continue decomposing the
+   current system.
+3. **Pick a new system autonomously** — no active project or current
+   system is complete.
 
-**Current research phase: DIRECTED INVESTIGATION.** The corpus contains
-8,300+ entities across 20+ domains. The initial falsification phase is
-mature — basic structural properties of the hex space are well-established.
-The priority is now: (1) scale up from anecdote to statistical analysis,
-(2) test practical applications, and (3) explore neglected dimensions of
-the taxonomy. Prefer APPLICATION and CALIBRATION over CORPUS_EXPANSION.
+### Autonomous system selection
 
----
+Check `COMPLETED_SYSTEMS` fact for previously completed systems. Pick
+from the seed list below, maximising domain diversity. Never repeat a
+domain until all domains have been covered.
 
-### Saturated topics (DO NOT revisit without a genuinely novel angle)
+```bash
+COMPLETED=$(uht-substrate facts query --predicate COMPLETED_SYSTEMS \
+  --namespace CLAUDE 2>/dev/null | \
+  jq -r '[.facts[].object] | join(",")' 2>/dev/null || echo "")
+```
 
-Before choosing a research question, check the last 5 journal entries.
-The following topics have been extensively covered across 15+ sessions
-each and MUST NOT be the primary focus of a session:
+**Seed systems (pick one per session, diverse domains):**
 
-- **Null-hex / sparse trait entities** — three-tier rescuability model
-  established, pure-state vs property-bearing divide confirmed. DONE.
-- **Popcount as complexity metric** — phase boundary found, inverted-U
-  confirmed, ontological multi-facetedness interpretation established. DONE.
-- **Trait loss / markedness asymmetry** — erasure-not-inversion pattern
-  confirmed across 8+ antonym pairs. DONE.
-- **Antonym / binary opposition structure** — trimodal structure confirmed,
-  false dichotomy detection demonstrated, subsumption pattern found. DONE.
-- **"UHT measures being, not doing"** — confirmed from 6+ independent
-  angles. DONE.
+| System | Domain | Scale | Notes |
+|--------|--------|-------|-------|
+| Autonomous vehicle | Transport | Large | Sensors, compute, actuators, safety |
+| Hospital patient monitoring | Medical | Medium | Sensors, alerts, records, regulatory |
+| Solar farm with battery storage | Energy | Large | Generation, storage, grid interface |
+| Naval combat management system | Defence | Large | Sensors, weapons, C2, comms |
+| Smart building management | Civil | Medium | HVAC, access, fire, lighting |
+| Earth observation satellite | Space | Large | Optics, comms, power, attitude |
+| Automated warehouse | Manufacturing | Medium | Robotics, inventory, routing |
+| Air traffic control system | Transport | Large | Radar, comms, display, safety |
+| Water treatment plant | Civil | Medium | Chemical, filtration, monitoring |
+| Surgical robot | Medical | Medium | Haptics, vision, instruments |
+| Wind turbine control system | Energy | Small | Pitch, yaw, generator, monitoring |
+| Cybersecurity operations centre | IT | Medium | SIEM, threat intel, response |
+| Railway signalling system | Transport | Large | Interlocking, detection, comms |
+| Offshore oil platform safety system | Energy | Large | Gas detection, shutdown, fire |
+| Precision agriculture drone fleet | Agriculture | Medium | Navigation, imaging, spraying |
+| Nuclear reactor protection system | Energy | Large | Sensors, trip logic, actuators |
+| Container ship cargo management | Maritime | Large | Loading, stability, monitoring |
+| Emergency dispatch system | Public safety | Medium | Call handling, dispatch, tracking |
+| Autonomous underwater vehicle | Marine | Medium | Navigation, sensors, propulsion |
+| Pharmaceutical manufacturing line | Manufacturing | Medium | Dosing, mixing, QC, packaging |
 
----
-
-### Research agenda — priority-ordered directives
-
-Each directive below is an under-explored research direction. Sessions
-SHOULD select from this list rather than revisiting saturated topics.
-When a directive has been adequately addressed (3+ sessions with
-converging findings), move it to the saturated list above.
-
-**P0 — Methodological foundations (do these FIRST):**
-
-1. **Statistical null model.** Generate a baseline to evaluate all
-   future claims. Classify 50 randomly generated concept names (or
-   use `entities list` to pull 200+ existing entities). Compute the
-   Jaccard distribution, popcount distribution, and collision rate
-   across the real corpus. Then generate 10,000 random 32-bit vectors
-   and compute the same statistics. Report which observed patterns are
-   statistically significant vs expected by chance. Store the baseline
-   statistics as research facts. Without this, no quantitative claim
-   in the research record is credible.
-   ```bash
-   # Example: corpus-wide popcount distribution
-   uht-substrate entities list --limit 500 --format pretty
-   # Compute popcount histogram from hex codes
-   ```
-
-2. **Scale up sample sizes.** STOP testing hypotheses with 6-12
-   hand-picked entities. The graph has 8,300+ entities. Use
-   `entities list`, `entities search-traits`, and `entities find-similar`
-   to draw samples of 50-200 entities. Selection bias from hand-picked
-   examples has undermined most existing CALIBRATION results.
-
-3. **Use `disambiguate` before classifying ambiguous terms.** Run
-   `uht-substrate disambiguate "<term>"` for any polysemous concept
-   before classification. This addresses the drift problem from session
-   78 at the source and should become standard practice.
-
-**P1 — High-value unexplored directions:**
-
-4. **Cross-domain analog discovery at scale.** This is UHT's unique
-   value proposition — finding ontological twins across unrelated
-   domains that embeddings cannot detect. Run `entities find-similar`
-   across 500+ randomly sampled entities. Record every cross-domain
-   pair with Jaccard >= 0.70 as a CROSS_DOMAIN_ANALOG research fact.
-   Build a curated catalog of the most surprising analogs. Currently
-   only ~20 cross-domain facts exist for 8,300+ entities — this is
-   the single largest missed opportunity.
-   ```bash
-   uht-substrate entities find-similar "<entity>" --min-traits 20 --limit 10
-   ```
-
-5. **Trait correlation matrix and effective dimensionality.** Session
-   103 found ~8 effective dimensions in 32 bits (HYP-053 untested).
-   Compute the full phi-correlation matrix across the corpus. Cluster
-   the traits. Name the effective dimensions. Determine which traits
-   are redundant and where new traits should be added. This is a
-   publishable structural finding about the taxonomy itself.
-   ```bash
-   uht-substrate entities search-traits --<trait-A> --<trait-B> --limit 500
-   uht-substrate entities search-traits --<trait-A> --no-<trait-B> --limit 500
-   ```
-
-6. **UHT vs embeddings divergence study at scale.** Take 200+ entity
-   pairs, compute both UHT Jaccard and embedding cosine similarity (via
-   `entities explore --metric embedding`), systematically catalog
-   where they disagree. This is the publishable comparison that
-   justifies UHT's existence as complementary to embeddings.
-
-7. **Context enrichment audit.** Most of the 8,300+ entities were
-   classified without rich context descriptions in early sessions.
-   Randomly sample 100+ entities classified before protocol v4.1.
-   Reclassify with `--force-refresh` and rich `--context` descriptions.
-   Measure systematic drift patterns. Quantify what fraction of the
-   corpus has unreliable classifications. This is a data quality
-   issue that undermines every quantitative claim.
-   ```bash
-   uht-substrate classify "<entity>" --force-refresh \
-     --context "<rich description>"
-   ```
-
-**P2 — Under-explored entity categories and phenomena:**
-
-8. **Temporal / process entities.** How does UHT handle events,
-   durations, workflows, ceremonies? Classify 20+ entities: wedding,
-   trial, software release, monsoon season, construction project,
-   presidential election, photosynthesis, fermentation, bankruptcy
-   proceeding, geological epoch. Test whether UHT discriminates process
-   types (cyclical vs terminal, reversible vs irreversible, individual
-   vs institutional). Barely explored (only sessions 25, 117).
-
-9. **Compositional semantics.** Do compound concepts inherit traits
-   from their parts? Session 89 found they are not trait-additive —
-   a major finding never followed up. Classify 15+ compound concepts
-   alongside their components (e.g. "solar panel" vs "solar" + "panel",
-   "blood bank" vs "blood" + "bank"). Measure trait inheritance rate
-   and identify which traits compose and which emerge.
-
-10. **Trait correlation with external taxonomies.** Do UHT trait groups
-    map to established ontological categories (BFO upper ontology,
-    SUMO, Cyc)? Classify 30+ entities from a well-known ontology and
-    check alignment. This would validate or challenge UHT's trait
-    definitions against established standards.
-
-**P3 — Operational application testing:**
-
-11. **Run `uht-substrate impact` on a real baseline diff.** This is
-    the operational use case that justifies UHT's existence in
-    requirements engineering. Create two baselines at different points,
-    diff them, and run impact analysis. Has NEVER been tested.
-    ```bash
-    uht-substrate impact --diff /tmp/diff.json
-    ```
-
-12. **Run `airgen lint` on the research project.** Test whether
-    UHT-based semantic linting produces useful quality signals for
-    the research requirements themselves.
-    ```bash
-    airgen lint $TENANT $PROJECT
-    ```
-
-13. **Requirements deduplication via hex distance.** HYP-008/HYP-009
-    are still open. Use `batch-compare` across 50+ AIRGen requirements
-    to find near-duplicate pairs by UHT Jaccard. Evaluate whether
-    hex distance predicts semantic redundancy better than text
-    similarity.
-
-14. **Use `semantic-triangle` and `map-properties` for diagnostic
-    analysis.** These tools have NEVER been used. Run
-    `uht-substrate semantic-triangle "<entity>"` on 10 entities to
-    understand how the classifier conceptualizes them. Run
-    `uht-substrate map-properties "<description>"` to test whether
-    natural language properties map cleanly to trait bits.
-
-**P4 — Research infrastructure improvements:**
-
-15. **Record research facts aggressively.** After 130 sessions and
-    8,300+ entities, only 20 research facts exist. Every session that
-    discovers a cross-domain analog, hex collision, trait outlier, or
-    functional archetype MUST store it as a research fact. The target
-    is 200+ facts within 30 sessions. Without a populated knowledge
-    base, sessions cannot build on prior work.
-
-16. **Run corpus-wide aggregate queries.** No session has ever run
-    aggregate statistics over the full entity graph. Dedicate a session
-    to computing: trait activation frequency across all entities,
-    most common hex codes, collision rate, popcount distribution,
-    Jaccard percentile distribution. Store results as research facts.
-    A single statistical sweep could produce more publishable findings
-    than 20 sessions of entity-pair analysis.
-
----
-
-### Open hypotheses requiring testing
-
-- HYP-008: Requirements deduplication via hex distance (→ directive 13)
-- HYP-011: Null-hex entities are specifically process-dependent/context-embedded
-- HYP-040: Trait correlation phi > 0.70 for 3+ pairs (→ directive 5)
-- HYP-053: The ~8 effective dimensions are interpretable meta-trait clusters (→ directive 5)
-- HYP-041: CLOSED (pre-empted by v4.1 context fix)
-- HYP-006: CLOSED (refuted, session 49)
-
-### Classification instability — resolved in v4.1
-
-Prior sessions (v4.0 and earlier) classified entities with bare names and
-no `--context` description. This caused stochastic results for polysemous
-terms (e.g. "Compression" oscillated between 3 hex codes). This is the
-expected behavior when the classifier receives an ambiguous name. As of
-protocol v4.1 and CLI v0.4.5, all classify calls require `--context`.
-Treat prior drift findings as artifacts of missing context, not classifier
-non-determinism. Do NOT investigate classification instability for entities
-classified without context.
-
-**Classification behavior — caching, context, and force-refresh:**
-The Substrate API caches classifications by entity name. A cached entity
-returns its stored hex code on subsequent `classify` calls. Key flags:
-
-- `--context "<description>"` — provides a 1-2 sentence description that
-  is injected as `{{entity_description}}` into each of the 32 trait
-  evaluation prompts. This enriches classification quality for new entities
-  and sets the stored description. **Always provide context when classifying.**
-- `--force-refresh` — bypasses the cache and forces fresh reclassification.
-  Use this when you need to re-evaluate an existing entity (e.g. drift checks).
-
-**Disambiguation rules:**
-- `classify "crane (bird)"` → AF520200, different from `classify "crane"` → DEC40018
-- For polysemous concepts, always disambiguate in the entity name AND provide
-  a rich `--context` description.
-- Example:
-  ```bash
-  uht-substrate classify "spring (mechanical)" \
-    --context "A coiled elastic device that stores mechanical energy. Physical, synthetic, structural component used in engineering."
-  ```
+When the seed list is exhausted and the bot proposes its own system, it must be:
+- A real, recognisable engineered system (not abstract)
+- Different domain from any completed system
+- Complex enough for 4+ subsystems
 
 ```bash
 uht-substrate facts upsert "autonomous-loop" CURRENT_TASK_CLASS \
-  "$TASK_CLASS" --namespace CLAUDE
+  "SE_DECOMPOSITION" --namespace CLAUDE
 ```
 
 ---
 
-## Phase 3: Execute Task
+## Phase 3: Execute Decomposition
 
 ---
 
-### TASK CLASS: INTEGRITY
+### Flow A: New System (no existing SE_PROJECT)
 
-Purpose: verify the scientific integrity of the research record —
-classification stability, cross-entry consistency, and hypothesis
-validity. This is a research task, not a DevOps audit.
+Use this flow when starting a fresh system decomposition — either from
+the seed list, an operator-queued target, or an autonomously selected
+system. This flow scaffolds the full project, creates initial
+requirements, and stores project state.
 
-1. **Structural preamble (quick, silent):**
-   ```bash
-   airgen docs list $TENANT $PROJECT
-   airgen trace linksets list $TENANT $PROJECT
-   ```
-   Verify 5 documents and 3 linksets exist. If anything is missing,
-   recreate it silently and move on. Do NOT write about structural
-   checks in the journal — they are housekeeping, not findings.
-
-   **Known issue:** `airgen bl list` always returns empty due to an API
-   bug. Do NOT check baselines via bl list. Baseline refs are stored
-   in Substrate (LAST_BASELINE_REF) and should be trusted there.
-
-2. **Classification drift check:**
-   Pick 3-5 entities from older corpus-log entries in `/tmp/corpus_index.json`
-   (use refs to look up full text if needed via `airgen reqs get`).
-   Re-classify each with `--force-refresh` to bypass cache:
-   ```bash
-   uht-substrate classify "<entity>" --force-refresh \
-     --context "<1-2 sentence description of the concept's meaning and domain>"
-   ```
-   Compare the new hex code to the hex code recorded in the corpus-log
-   entry. Compute Hamming distance (count differing bits). If any entity
-   drifts by > 2 bits, store a research fact and investigate:
-   ```bash
-   uht-substrate facts upsert "<entity>" CLASSIFICATION_DRIFT \
-     "<old-hex> → <new-hex>" --namespace RESEARCH
-   ```
-
-3. **Cross-entry consistency via entity graph:**
-   ```bash
-   uht-substrate entities search-traits --<dominant-trait> --limit 20
-   ```
-   Pick a trait that appeared significant in recent sessions. Check
-   whether the entities sharing that trait form a semantically coherent
-   group. Look for outliers — entities that activate the trait but
-   don't belong conceptually. These are potential misclassifications
-   or trait definition issues.
-
-4. **Hypothesis-result consistency:**
-   Pick a confirmed or refuted hypothesis from `/tmp/active_reqs.json`.
-   Check whether corpus data added since the hypothesis was tested
-   supports or contradicts the conclusion. Use `entities find-similar`
-   to find new entities related to the hypothesis topic:
-   ```bash
-   uht-substrate entities find-similar "<hypothesis-related entity>" \
-     --min-traits 15 --limit 10
-   ```
-
-5. **Record result:**
-   If clean:
-   ```bash
-   uht-substrate facts upsert "integrity" LAST_CLEAN_CHECK \
-     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --namespace CLAUDE
-   ```
-
-**Flag if:** drift > 2 bits on any entity, or hypothesis contradicted by new data → urgency `high`
-
----
-
-### TASK CLASS: TRACE_GAP
-
-Purpose: identify gaps in the research record and convert observations
-into testable hypotheses. This session MUST produce at least one new
-observation→hypothesis trace link.
-
-1. **Read baseline refs from Substrate** (bl list has an API bug):
-   ```bash
-   BL_LATEST=$(uht-substrate facts query --predicate LAST_BASELINE_REF \
-     --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
-   BL_PREV=$(uht-substrate facts query --predicate PREV_BASELINE_REF \
-     --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
-   ```
-   If both refs exist, diff them:
-   ```bash
-   airgen bl compare $TENANT $PROJECT \
-     --from $BL_PREV --to $BL_LATEST --json > /tmp/diff.json
-   ```
-   If only one or zero refs exist, skip the diff and instead analyse
-   the current requirements for coverage gaps.
-
-2. **Analyse gaps:**
-   - Are there hypotheses without matching results?
-   - Are there results without trace links to hypotheses?
-   - Are there observations that haven't motivated any hypothesis?
-   - Are there corpus-log entries for domains not yet tested by calibration?
-   - Use entity graph to find research-worthy gaps:
-     ```bash
-     uht-substrate entities search-traits --limit 20
-     ```
-     Look for traits with very few entities (under-explored) or traits
-     with many entities but no calibration hypothesis testing them.
-
-3. **Record findings as observations in AIRGen:**
-   ```bash
-   OBS_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "The research record SHALL address the following gap: \
-   <description of gap>. [Identified by baseline diff ${BL_PREV}..${BL_LATEST}, \
-   session autonomous-$SESSION_N.]" \
-     --document observations \
-     --section section-1773068410280 \
-     --tags trace-gap,session-$SESSION_N 2>&1)
-   OBS_REF=$(echo "$OBS_JSON" | jq -r '.requirement.ref // empty')
-   ```
-
-4. **MANDATORY: Create at least one OBS→HYP trace link.**
-   Every TRACE_GAP session must convert at least one observation into
-   a testable hypothesis. If existing observations suggest hypotheses,
-   create the hypothesis and link it. If no observations exist, create
-   one from entity graph exploration, then derive a hypothesis from it.
-   ```bash
-   HYP_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "The UHT SHALL <testable claim derived from observation>. \
-   [Confirmed by: <criterion>. Refuted by: <criterion>. \
-   Derived from: $OBS_REF.]" \
-     --document hypotheses \
-     --section section-1773068408469 \
-     --tags hypothesis,session-$SESSION_N 2>&1)
-   HYP_REF=$(echo "$HYP_JSON" | jq -r '.requirement.ref // empty')
-
-   airgen trace create $TENANT $PROJECT \
-     --source "uht-bot:uht-research:$OBS_REF" \
-     --target "uht-bot:uht-research:$HYP_REF" --type derives
-   ```
-
-5. **Baseline** (store ref in Substrate since bl list is broken):
-   ```bash
-   BL_OLD=$(uht-substrate facts query --predicate LAST_BASELINE_REF \
-     --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
-   [ -n "$BL_OLD" ] && uht-substrate facts upsert "autonomous-loop" \
-     PREV_BASELINE_REF "$BL_OLD" --namespace CLAUDE
-   NEW_BL=$(airgen bl create $TENANT $PROJECT \
-     --label "TRACE-GAP-$(date +%Y-%m-%d)" 2>&1 | \
-     jq -r '.baseline.ref // empty')
-   [ -n "$NEW_BL" ] && uht-substrate facts upsert "autonomous-loop" \
-     LAST_BASELINE_REF "$NEW_BL" --namespace CLAUDE
-   ```
+**1. Create AIRGen project:**
 
 ```bash
-uht-substrate facts upsert "autonomous-loop" LAST_TRACE_GAP_RUN \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --namespace CLAUDE
+SYSTEM_NAME="<system name>"
+SYSTEM_SLUG="<system-slug>"  # lowercase, hyphenated
+airgen projects create $TENANT --name "$SYSTEM_NAME" --key "se-$SYSTEM_SLUG" --slug "se-$SYSTEM_SLUG" --description "UHT-backed system decomposition: $SYSTEM_NAME"
 ```
 
-**Flag if:** untested hypotheses > 3, or unlinked results found → urgency `medium`
+**2. Create 6 documents:**
+
+```bash
+P="se-$SYSTEM_SLUG"
+airgen docs create $TENANT $P --name "Stakeholder Requirements" --code STK --description "ConOps-level needs and constraints"
+airgen docs create $TENANT $P --name "System Requirements" --code SYS --description "Top-level system SHALL statements"
+airgen docs create $TENANT $P --name "Subsystem Requirements" --code SUB --description "Per-subsystem decomposed requirements"
+airgen docs create $TENANT $P --name "Interface Requirements" --code IFC --description "Interface definitions between components"
+airgen docs create $TENANT $P --name "Architecture Decisions" --code ARC --description "Design rationale and trade-offs"
+airgen docs create $TENANT $P --name "Verification Plan" --code VER --description "Verification approach for each requirement"
+```
+
+**3. Create sections (one per document):**
+
+```bash
+airgen docs sections create $TENANT $P stakeholder-requirements --title "Stakeholder Needs"
+airgen docs sections create $TENANT $P system-requirements --title "System-Level Requirements"
+airgen docs sections create $TENANT $P subsystem-requirements --title "Subsystem Requirements"
+airgen docs sections create $TENANT $P interface-requirements --title "Interface Definitions"
+airgen docs sections create $TENANT $P architecture-decisions --title "Architecture Decisions"
+airgen docs sections create $TENANT $P verification-plan --title "Verification Methods"
+```
+
+**4. Create trace linksets:**
+
+```bash
+airgen trace linksets create $TENANT $P --source stakeholder-requirements --target system-requirements --link-type derives
+airgen trace linksets create $TENANT $P --source system-requirements --target subsystem-requirements --link-type derives
+airgen trace linksets create $TENANT $P --source system-requirements --target interface-requirements --link-type derives
+airgen trace linksets create $TENANT $P --source subsystem-requirements --target verification-plan --link-type verifies
+airgen trace linksets create $TENANT $P --source interface-requirements --target verification-plan --link-type verifies
+```
+
+**5. Create Substrate namespace:**
+
+```bash
+uht-substrate namespaces create "SE:$SYSTEM_SLUG" "$SYSTEM_NAME"
+```
+
+**6. Classify the system entity:**
+
+```bash
+uht-substrate classify "$SYSTEM_NAME" \
+  --context "<1-2 sentence description of the system>" \
+  -n "SE:$SYSTEM_SLUG"
+```
+
+**7. Create system context diagram:**
+
+```bash
+DIAG_JSON=$(airgen diag create $TENANT $P --name "$SYSTEM_NAME — Context" --view block --description "System context diagram" 2>&1)
+DIAG_ID=$(echo "$DIAG_JSON" | jq -r '.diagram.id // empty')
+
+# Create system block
+airgen diag blocks create $TENANT $P --diagram $DIAG_ID --name "$SYSTEM_NAME" --kind system
+
+# Create external actor blocks (identify 3-5 actors)
+airgen diag blocks create $TENANT $P --diagram $DIAG_ID --name "<Actor>" --kind actor
+# Create connectors between system and actors
+airgen diag connectors create $TENANT $P --diagram $DIAG_ID --source <system-block-id> --target <actor-block-id> --kind flow --label "<data/control flow>"
+```
+
+**8. Decompose into 4-7 subsystems:**
+
+For each subsystem:
+- Classify in Substrate with `--context` and `-n "SE:$SYSTEM_SLUG"`
+- Store `"<Subsystem>" PART_OF "$SYSTEM_NAME"` fact in namespace
+- Add as subsystem block in decomposition diagram
+
+```bash
+uht-substrate classify "<Subsystem>" \
+  --context "<1-2 sentence description of the subsystem's role>" \
+  -n "SE:$SYSTEM_SLUG"
+
+uht-substrate facts store "<Subsystem>" PART_OF "$SYSTEM_NAME" -n "SE:$SYSTEM_SLUG"
+```
+
+**9. Create system decomposition diagram:**
+
+```bash
+DECOMP_JSON=$(airgen diag create $TENANT $P --name "$SYSTEM_NAME — Decomposition" --view block --description "Subsystem decomposition" 2>&1)
+DECOMP_ID=$(echo "$DECOMP_JSON" | jq -r '.diagram.id // empty')
+# Add system block and subsystem blocks with composition connectors
+```
+
+**10. Generate stakeholder requirements (5-8):**
+
+```bash
+# Get section ID
+STK_SECTION=$(airgen docs get $TENANT $P stakeholder-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
+
+airgen reqs create $TENANT $P \
+  --text "The $SYSTEM_NAME SHALL <stakeholder need>." \
+  --document stakeholder-requirements \
+  --section $STK_SECTION \
+  --tags stakeholder,session-$SESSION_N
+```
+
+**11. Generate system-level requirements (8-15):**
+
+```bash
+SYS_SECTION=$(airgen docs get $TENANT $P system-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
+
+SYS_JSON=$(airgen reqs create $TENANT $P \
+  --text "The $SYSTEM_NAME SHALL <system requirement>." \
+  --document system-requirements \
+  --section $SYS_SECTION \
+  --tags system,session-$SESSION_N 2>&1)
+SYS_REF=$(echo "$SYS_JSON" | jq -r '.requirement.ref // empty')
+
+# Trace to stakeholder requirement
+airgen trace create $TENANT $P \
+  --source "uht-bot:$P:$STK_REF" \
+  --target "uht-bot:$P:$SYS_REF" --type derives
+```
+
+**12. Store SE project state:**
+
+```bash
+uht-substrate facts upsert "autonomous-loop" CURRENT_SE_PROJECT "se-$SYSTEM_SLUG" --namespace CLAUDE
+uht-substrate facts upsert "autonomous-loop" CURRENT_SE_SYSTEM "$SYSTEM_NAME" --namespace CLAUDE
+uht-substrate facts upsert "autonomous-loop" CURRENT_SE_NAMESPACE "SE:$SYSTEM_SLUG" --namespace CLAUDE
+uht-substrate facts upsert "se-$SYSTEM_SLUG" DECOMPOSITION_STATUS "scaffolded" --namespace CLAUDE
+```
+
+**13. Create baseline:**
+
+```bash
+airgen bl create $TENANT $P --label "SCAFFOLD-$(date +%Y-%m-%d)"
+```
 
 ---
 
-### TASK CLASS: CALIBRATION
+### Flow B: Continuing System (SE_PROJECT exists)
 
-Purpose: formulate and test a falsifiable UHT hypothesis. Record both
-hypothesis and result as traced requirements in AIRGen.
+Use this flow when an SE project already exists and decomposition is
+in progress. This flow deepens the decomposition by breaking down
+subsystems into components, adding requirements, interfaces, and
+verification entries.
 
-1. **Check for queued hypotheses:**
-   ```bash
-   uht-substrate facts query --predicate OPEN_HYPOTHESIS \
-     --namespace CLAUDE > /tmp/open_hyp.json
-   QUEUED=$(jq -r '.facts[0].object // ""' /tmp/open_hyp.json)
-   QUEUED_ID=$(jq -r '.facts[0].uuid // ""' /tmp/open_hyp.json)
-   ```
-
-2. **Check for untested hypotheses in AIRGen:**
-   ```bash
-   jq '[.[] | select(.tags // [] | any(. == "hypothesis"))]' /tmp/active_reqs.json \
-     > /tmp/hyp_reqs.json
-   jq '[.[] | select(.tags // [] | any(. == "result"))]' /tmp/active_reqs.json \
-     > /tmp/res_reqs.json
-   ```
-   Look for hypothesis requirements that have no corresponding result
-   (by checking trace links or matching tags). Prefer testing an
-   existing untested hypothesis over creating a new one.
-
-3. **If no queued or untested hypothesis exists**, generate one from:
-   - *UHT-embedding divergence*: Select concept pairs where UHT
-     similarity and expected embedding similarity disagree. High
-     UHT / low embedding = ontological twins in distant domains.
-     Low UHT / high embedding = co-occurring concepts that are
-     categorically different. Both are discoveries, not failures.
-   - *Entity graph exploration*: Run `entities explore` on a recent
-     entity to discover unexpected neighbors. Run `entities find-similar`
-     to find high-similarity cross-domain pairs. Run `entities search-traits`
-     to find unusual trait combinations.
-     ```bash
-     uht-substrate entities explore "<recent entity>" \
-       --metric embedding --limit 10
-     uht-substrate entities find-similar "<entity>" \
-       --min-traits 20 --limit 5
-     uht-substrate entities search-traits --<trait> --no-<other-trait> \
-       --limit 10
-     ```
-   - *Cross-domain clustering*: Do concepts from different domains that
-     share a semantic role cluster tighter in UHT space than concepts
-     from the same domain?
-   - *Orphan signal*: Do orphaned requirements differ systematically
-     from well-traced ones in UHT space?
-   - *Layer entropy*: Which UHT layer shows highest variance across
-     a sampled corpus?
-
-4. **Create hypothesis in AIRGen and capture ref:**
-   ```bash
-   HYP_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "The UHT SHALL <claim being tested> when applied to <context>. \
-   [Confirmed by: <criterion>. Refuted by: <criterion>. \
-   Rationale: <why worth testing>.]" \
-     --document hypotheses \
-     --section section-1773068408469 \
-     --tags hypothesis,session-$SESSION_N 2>&1)
-   HYP_REF=$(echo "$HYP_JSON" | jq -r '.requirement.ref // empty')
-   ```
-
-5. **Execute test** — budget: 20 classify/compare/batch-compare calls.
-   Use `uht-substrate classify` (always with `--context`),
-   `uht-substrate compare`, `uht-substrate batch-compare` as needed.
-   When classifying new entities, provide a rich `--context` description.
-   When reclassifying existing entities, add `--force-refresh`.
-
-6. **Create result in AIRGen and capture ref:**
-   ```bash
-   RES_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "Analysis of $HYP_REF SHALL record result: \
-   <confirmed|refuted|inconclusive>. <Summary with data.> \
-   [Session: autonomous-$SESSION_N. Sample size: <n>.]" \
-     --document results \
-     --section section-1773068409701 \
-     --tags result,session-$SESSION_N 2>&1)
-   RES_REF=$(echo "$RES_JSON" | jq -r '.requirement.ref // empty')
-
-   # Trace link: hypothesis → result
-   airgen trace create $TENANT $PROJECT \
-     --source "uht-bot:uht-research:$HYP_REF" \
-     --target "uht-bot:uht-research:$RES_REF" --type derives
-   ```
-
-7. **Store research facts for notable findings:**
-   If the test reveals cross-domain analogs, hex collisions, or
-   functional archetypes, store them:
-   ```bash
-   # Cross-domain entities with Jaccard >= 0.70
-   uht-substrate facts upsert "<entity-A> ↔ <entity-B>" CROSS_DOMAIN_ANALOG \
-     "Jaccard: 0.XXX, domains: <domain-A> ↔ <domain-B>" --namespace RESEARCH
-
-   # If multiple entities from different domains converge
-   uht-substrate facts upsert "<archetype-label>" FUNCTIONAL_ARCHETYPE \
-     "<entity1>, <entity2>, <entity3>" --namespace RESEARCH
-   ```
-
-8. **If result motivates a trait proposal:**
-   ```bash
-   TRT_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "The UHT trait set SHALL be extended with '<trait>': \
-   <definition>. [Motivation: $RES_REF shows <finding>. \
-   Expected impact: <effect>. Reclassification burden: ~<n> entities.]" \
-     --document trait-proposals \
-     --section section-1773068412170 \
-     --tags trait-proposal,session-$SESSION_N 2>&1)
-   TRT_REF=$(echo "$TRT_JSON" | jq -r '.requirement.ref // empty')
-
-   # Trace from result to proposal
-   airgen trace create $TENANT $PROJECT \
-     --source "uht-bot:uht-research:$RES_REF" \
-     --target "uht-bot:uht-research:$TRT_REF" --type derives
-   ```
-
-9. **Consume queued hypothesis if used:**
-   ```bash
-   [ -n "$QUEUED_ID" ] && [ "$QUEUED_ID" != "null" ] && \
-     uht-substrate facts delete "$QUEUED_ID"
-   ```
-
-10. **Baseline** (store ref in Substrate since bl list is broken):
-   ```bash
-   BL_OLD=$(uht-substrate facts query --predicate LAST_BASELINE_REF \
-     --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
-   [ -n "$BL_OLD" ] && uht-substrate facts upsert "autonomous-loop" \
-     PREV_BASELINE_REF "$BL_OLD" --namespace CLAUDE
-   NEW_BL=$(airgen bl create $TENANT $PROJECT \
-     --label "CALIBRATION-$(date +%Y-%m-%d)" 2>&1 | \
-     jq -r '.baseline.ref // empty')
-   [ -n "$NEW_BL" ] && uht-substrate facts upsert "autonomous-loop" \
-     LAST_BASELINE_REF "$NEW_BL" --namespace CLAUDE
-   ```
+**1. Load project state and identify progress:**
 
 ```bash
-uht-substrate facts upsert "autonomous-loop" LAST_CALIBRATION_RUN \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --namespace CLAUDE
+# List existing subsystem requirements to find decomposed subsystems
+airgen reqs filter $TENANT $SE_PROJECT --document subsystem-requirements --json --limit 100 2>/dev/null > /tmp/sub_reqs.json
+
+# List diagrams to see which subsystems have internal diagrams
+airgen diag list $TENANT $SE_PROJECT 2>/dev/null
+
+# Query facts for PART_OF relationships
+uht-substrate facts query -p PART_OF -n "$SE_NAMESPACE" 2>/dev/null | jq '.facts // []'
 ```
 
-**Flag if:** result confirmed or refuted → urgency `medium`.
-Trait proposal created → urgency `high`.
+**2. Identify the least-decomposed subsystem** — the one with fewest
+or zero subsystem requirements. Focus the session on that subsystem.
 
----
+**3. Decompose subsystem into 3-6 components:**
 
-### TASK CLASS: CORPUS_EXPANSION
-
-Purpose: classify new entities in a domain, widen UHT coverage, record
-in AIRGen corpus-log.
-
-1. **Check for queued expansion target:**
-   ```bash
-   TARGET=$(uht-substrate facts query --predicate EXPANSION_TARGET \
-     --namespace CLAUDE 2>/dev/null | \
-     jq -r '.facts[0].object // ""')
-   TARGET_ID=$(uht-substrate facts query --predicate EXPANSION_TARGET \
-     --namespace CLAUDE 2>/dev/null | \
-     jq -r '.facts[0].uuid // ""')
-   ```
-
-2. **If no queued target**, select from the research frontier. Review
-   existing corpus-log entries in `/tmp/corpus_index.json` to see which
-   domains have been covered, then choose from these priority categories:
-
-   **Trait-gap stress tests** (domains likely to expose classification limits):
-   ecology, phenomenology, category theory, linguistics
-
-   **Cross-domain bridges** (connect existing coverage areas):
-   operations research, bioethics, systems engineering, cognitive science
-
-   **Null-hex hunters** (abstract concepts that may produce 00000000):
-   aesthetics, consciousness, paradox, semiotics
-
-   Prefer domains not yet covered. Prefer domains adjacent to recent
-   findings that would test whether observed patterns hold.
-
-   **Domain rotation rule:** Do NOT expand the same domain as the
-   previous CORPUS_EXPANSION session. Check the most recent corpus-log
-   entry in `/tmp/corpus_index.json` for its domain tag and choose a
-   different domain. Each session must explore a new domain — depth
-   within a domain comes from CALIBRATION hypotheses, not repeated
-   expansion.
-
-3. **Check existing coverage via entity graph:**
-   ```bash
-   uht-substrate entities list --name "<keyword>" --limit 20
-   ```
-   See which entities from this domain already exist. Avoid
-   re-classifying known entities.
-
-4. **Identify 5-10 fundamental entities** not yet in the corpus.
-   Classify each with a rich `--context` description. For polysemous terms,
-   disambiguate in the entity name AND provide context:
-   ```bash
-   uht-substrate classify "<entity>" \
-     --context "<1-2 sentence description: what it is, its domain, key properties>"
-   # For ambiguous terms, disambiguate in the name:
-   # uht-substrate classify "spring (mechanical)" \
-   #   --context "A coiled elastic device that stores mechanical energy. Physical, synthetic, structural."
-   ```
-
-5. **Coherence check** — compare each new entity to its nearest
-   neighbours:
-   ```bash
-   uht-substrate batch-compare "<entity>" "<neighbour1>" "<neighbour2>"
-   ```
-
-6. **Cross-domain discovery via entity graph:**
-   After classifying, find cross-domain analogs for the most surprising
-   entity:
-   ```bash
-   uht-substrate entities find-similar "<most-surprising-entity>" \
-     --min-traits 15 --limit 10
-   ```
-   Use `entities search-traits` with the domain's dominant trait pattern
-   to find existing entities sharing the same profile — these are
-   potential cross-domain archetypes worth noting.
-
-7. **Store research facts for notable findings:**
-   For each finding that meets a threshold, create a research fact:
-   ```bash
-   # If two entities share the same hex code
-   uht-substrate facts upsert "<entity-A> ↔ <entity-B>" HEX_COLLISION \
-     "<hex-code>" --namespace RESEARCH
-
-   # If cross-domain Jaccard >= 0.70
-   uht-substrate facts upsert "<entity-A> ↔ <entity-B>" CROSS_DOMAIN_ANALOG \
-     "Jaccard: 0.XXX, domains: <domain-A> ↔ <domain-B>" --namespace RESEARCH
-
-   # If an entity activates a trait none of its domain peers share
-   uht-substrate facts upsert "<entity>" TRAIT_OUTLIER \
-     "<trait-name>" --namespace RESEARCH
-
-   # If an entity classifies as 00000000
-   uht-substrate facts upsert "<entity>" NULL_HEX \
-     "$TARGET" --namespace RESEARCH
-   ```
-   Check existing facts first to avoid duplicates.
-
-8. **Record in AIRGen corpus-log:**
-   ```bash
-   COR_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "The UHT corpus SHALL include the following $TARGET entities \
-   as of $(date +%Y-%m-%d): <e1> (<hex1>), <e2> (<hex2>), ... \
-   [Cross-domain analogies: <observation>. \
-   Most surprising classification: <entity> at <hex> because <reason>.]" \
-     --document corpus-log \
-     --section section-1773068411382 \
-     --tags corpus-expansion,$TARGET,session-$SESSION_N 2>&1)
-   COR_REF=$(echo "$COR_JSON" | jq -r '.requirement.ref // empty')
-   ```
-
-9. **Consume queued target:**
-   ```bash
-   [ -n "$TARGET_ID" ] && [ "$TARGET_ID" != "null" ] && \
-     uht-substrate facts delete "$TARGET_ID"
-   ```
-
-10. **Baseline** (store ref in Substrate since bl list is broken):
-   ```bash
-   BL_OLD=$(uht-substrate facts query --predicate LAST_BASELINE_REF \
-     --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
-   [ -n "$BL_OLD" ] && uht-substrate facts upsert "autonomous-loop" \
-     PREV_BASELINE_REF "$BL_OLD" --namespace CLAUDE
-   NEW_BL=$(airgen bl create $TENANT $PROJECT \
-     --label "CORPUS-$(date +%Y-%m-%d)-$TARGET" 2>&1 | \
-     jq -r '.baseline.ref // empty')
-   [ -n "$NEW_BL" ] && uht-substrate facts upsert "autonomous-loop" \
-     LAST_BASELINE_REF "$NEW_BL" --namespace CLAUDE
-   ```
+For each component:
 
 ```bash
-uht-substrate facts upsert "autonomous-loop" LAST_CORPUS_RUN \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --namespace CLAUDE
+uht-substrate classify "<Component>" \
+  --context "<description of component within subsystem context>" \
+  -n "$SE_NAMESPACE"
+
+uht-substrate facts store "<Component>" PART_OF "<Subsystem>" -n "$SE_NAMESPACE"
+uht-substrate facts store "<Component>" PRODUCES "<output>" -n "$SE_NAMESPACE"
 ```
 
-**Flag if:** any entity has Jaccard < 0.30 to nearest neighbour → urgency `low`.
-Null hex (00000000) classification → urgency `medium`.
-
----
-
-### TASK CLASS: APPLICATION
-
-Purpose: test whether UHT produces practically useful signals that
-embeddings alone cannot.
-
-**METHODOLOGICAL CORRECTION (mandatory reading):**
-UHT similarity and embedding similarity are orthogonal measures.
-UHT encodes explicit ontological properties — what a concept *is* in
-terms of designed traits. Embeddings encode distributional proximity —
-what concepts appear near each other in text. These will frequently
-disagree, and the disagreements are the signal, not the failure.
-
-Sessions 50, 33, and 32 benchmarked UHT against tasks where embeddings
-excel (ontology alignment, analogy detection, cross-domain structural
-correspondence) and concluded UHT fails because it does not replicate
-embedding-style results. This conclusion is methodologically unsound.
-A measure that simply reproduced embedding similarity would be
-redundant. The value of UHT is precisely where it *diverges* from
-embeddings.
-
-**The correct evaluation framework is divergence analysis.** For any
-pair of concepts, the interesting cases are disagreement:
-- **High embedding similarity, low UHT similarity** = concepts that
-  co-occur in text but are categorically different kinds of thing.
-  Example: deadlock and concurrency control — distributionally
-  inseparable but categorically opposed at the trait level.
-- **Low embedding similarity, high UHT similarity** = concepts from
-  distant domains sharing an identical ontological property profile.
-  Example: Gibbs free energy and channel capacity at Jaccard 1.00 —
-  distributionally distant but the same kind of abstract quantitative
-  constraint. This class of finding is what UHT can produce that
-  embeddings cannot.
-
-**Do NOT evaluate UHT by asking "does it replicate what embeddings
-do?" Instead ask: "what does UHT reveal that embeddings miss?"**
-
-1. **Check for queued application topic:**
-   ```bash
-   uht-substrate facts query --predicate OPEN_HYPOTHESIS \
-     --namespace CLAUDE > /tmp/open_hyp.json
-   QUEUED=$(jq -r '.facts[0].object // ""' /tmp/open_hyp.json)
-   QUEUED_ID=$(jq -r '.facts[0].uuid // ""' /tmp/open_hyp.json)
-   ```
-   The `/experiment` Telegram command queues topics here. If a queued
-   topic describes an application use case, use it.
-
-2. **If no queued topic**, select from the application frontier:
-
-   **Divergence analysis (PRIORITY):** Select 20 concept pairs spanning
-   a range of expected embedding similarities. Classify all 40 in UHT.
-   For each pair, record UHT Jaccard and estimated embedding similarity
-   (based on domain proximity and co-occurrence likelihood). Identify
-   high-divergence pairs in both directions. Analyse whether the
-   divergence is meaningful or artifactual.
-
-   **Anomaly detection:** Can UHT trait profiles flag concepts that
-   don't fit their stated category? Classify concepts with known
-   miscategorizations and check if UHT trait distance separates them
-   from their purported peers.
-
-   **Requirements deduplication:** Do semantically duplicate requirements
-   (same intent, different wording) produce similar hex codes? Classify
-   paraphrases and measure Hamming distance. Note: this tests naming
-   sensitivity, not embedding similarity.
-
-   **Concept boundary detection:** Can UHT trait differences between
-   two near-synonyms reveal where one concept ends and another begins?
-   This is a task embeddings handle poorly (near-synonyms cluster)
-   but where ontological trait differences may discriminate.
-
-   Review `/tmp/active_reqs.json` to see which application topics have
-   already been tested. Select one not yet explored.
-
-3. **Formulate application hypothesis and capture ref:**
-   ```bash
-   HYP_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "UHT SHALL be effective as a <application> tool: \
-   <specific testable claim>. \
-   [Confirmed by: <criterion with threshold>. \
-   Refuted by: <criterion with threshold>. \
-   Rationale: <why this application is worth testing>.]" \
-     --document hypotheses \
-     --section section-1773068408469 \
-     --tags hypothesis,application,session-$SESSION_N 2>&1)
-   HYP_REF=$(echo "$HYP_JSON" | jq -r '.requirement.ref // empty')
-   ```
-
-4. **Execute test** — budget: 25 classify/compare/batch-compare calls.
-   Design a controlled experiment:
-   - Define positive examples (where UHT should succeed)
-   - Define negative examples (where UHT should fail or show difference)
-   - Classify all examples (always with `--context` descriptions)
-   - Measure the discriminating metric (Jaccard, Hamming, trait overlap)
-   - Report precision/recall or accuracy if applicable
-
-5. **Create result in AIRGen and capture ref:**
-   ```bash
-   RES_JSON=$(airgen reqs create $TENANT $PROJECT \
-     --text "Application test of $HYP_REF SHALL record: \
-   <effective|ineffective|partially effective>. <Summary with data.> \
-   [Session: autonomous-$SESSION_N. Sample size: <n>. \
-   Discriminating metric: <metric> at threshold <t>. \
-   Accuracy: <value> on <n> test pairs.]" \
-     --document results \
-     --section section-1773068409701 \
-     --tags result,application,session-$SESSION_N 2>&1)
-   RES_REF=$(echo "$RES_JSON" | jq -r '.requirement.ref // empty')
-
-   # Trace link: hypothesis → result
-   airgen trace create $TENANT $PROJECT \
-     --source "uht-bot:uht-research:$HYP_REF" \
-     --target "uht-bot:uht-research:$RES_REF" --type derives
-   ```
-
-6. **If application is effective, create a trait proposal or observation:**
-   If the test reveals UHT works well for this application, record
-   the method as a reusable pattern. If it reveals a gap (e.g., works
-   except when concepts lack trait X), create an observation linking
-   to a trait proposal.
-
-7. **Consume queued topic if used:**
-   ```bash
-   [ -n "$QUEUED_ID" ] && [ "$QUEUED_ID" != "null" ] && \
-     uht-substrate facts delete "$QUEUED_ID"
-   ```
-
-8. **Baseline** (store ref in Substrate since bl list is broken):
-   ```bash
-   BL_OLD=$(uht-substrate facts query --predicate LAST_BASELINE_REF \
-     --namespace CLAUDE 2>/dev/null | jq -r '.facts[0].object // ""')
-   [ -n "$BL_OLD" ] && uht-substrate facts upsert "autonomous-loop" \
-     PREV_BASELINE_REF "$BL_OLD" --namespace CLAUDE
-   NEW_BL=$(airgen bl create $TENANT $PROJECT \
-     --label "APPLICATION-$(date +%Y-%m-%d)" 2>&1 | \
-     jq -r '.baseline.ref // empty')
-   [ -n "$NEW_BL" ] && uht-substrate facts upsert "autonomous-loop" \
-     LAST_BASELINE_REF "$NEW_BL" --namespace CLAUDE
-   ```
+**4. Create internal block diagram for the subsystem:**
 
 ```bash
-uht-substrate facts upsert "autonomous-loop" LAST_APPLICATION_RUN \
-  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --namespace CLAUDE
+INT_JSON=$(airgen diag create $TENANT $SE_PROJECT \
+  --name "<Subsystem> — Internal" --view internal \
+  --description "Internal component diagram for <Subsystem>" 2>&1)
+INT_ID=$(echo "$INT_JSON" | jq -r '.diagram.id // empty')
+# Add component blocks and connectors
 ```
 
-**Flag if:** application effective → urgency `high` (operator wants to know).
-Application reveals trait gap → urgency `medium`.
+**5. Generate subsystem requirements (5-10):**
+
+```bash
+SUB_SECTION=$(airgen docs get $TENANT $SE_PROJECT subsystem-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
+
+SUB_JSON=$(airgen reqs create $TENANT $SE_PROJECT \
+  --text "The <Subsystem> SHALL <requirement>." \
+  --document subsystem-requirements \
+  --section $SUB_SECTION \
+  --tags subsystem,<subsystem-tag>,session-$SESSION_N 2>&1)
+SUB_REF=$(echo "$SUB_JSON" | jq -r '.requirement.ref // empty')
+
+# Trace to parent system requirement
+airgen trace create $TENANT $SE_PROJECT \
+  --source "uht-bot:$SE_PROJECT:$PARENT_SYS_REF" \
+  --target "uht-bot:$SE_PROJECT:$SUB_REF" --type derives
+```
+
+**6. Define interfaces between components (2-4):**
+
+```bash
+IFC_SECTION=$(airgen docs get $TENANT $SE_PROJECT interface-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
+
+airgen reqs create $TENANT $SE_PROJECT \
+  --text "The interface between <Component A> and <Component B> SHALL <interface requirement>." \
+  --document interface-requirements \
+  --section $IFC_SECTION \
+  --tags interface,<subsystem-tag>,session-$SESSION_N
+
+uht-substrate facts store "<Component A>" CONNECTS "<Component B>" -n "$SE_NAMESPACE"
+```
+
+**7. Quality check:**
+
+```bash
+airgen lint $TENANT $SE_PROJECT --format text
+airgen reports orphans $TENANT $SE_PROJECT
+```
+
+**8. Cross-domain insight (if budget remains):**
+
+```bash
+uht-substrate entities find-similar "<most interesting component>" --min-traits 15 --limit 5
+```
+
+If a cross-domain analog is found (Jaccard >= 0.70), note it in the
+journal. If the analog suggests missing requirements or interfaces,
+add them.
+
+**9. Update decomposition status:**
+
+```bash
+# Check if all subsystems have been decomposed
+# If yes:
+uht-substrate facts upsert "se-$SYSTEM_SLUG" DECOMPOSITION_STATUS "complete" --namespace CLAUDE
+# Store in completed list
+uht-substrate facts store "autonomous-loop" COMPLETED_SYSTEMS "se-$SYSTEM_SLUG" --namespace CLAUDE
+# Clear current project (next session picks a new system)
+uht-substrate facts delete <CURRENT_SE_PROJECT fact uuid>
+uht-substrate facts delete <CURRENT_SE_SYSTEM fact uuid>
+uht-substrate facts delete <CURRENT_SE_NAMESPACE fact uuid>
+```
+
+If the system is not yet fully decomposed, leave `DECOMPOSITION_STATUS`
+as-is and do not clear the current project facts.
+
+**10. Create baseline:**
+
+```bash
+airgen bl create $TENANT $SE_PROJECT --label "DECOMP-$(date +%Y-%m-%d)"
+```
 
 ---
 
@@ -1160,8 +553,14 @@ reads this after the session, sends the Telegram message, and deletes it.
 
 ```bash
 uht-substrate facts upsert "telegram-notify" PENDING_NOTIFICATION \
-  "$TASK_CLASS | $SUMMARY | $URGENCY" --namespace CLAUDE
+  "$SUMMARY | $URGENCY" --namespace CLAUDE
 ```
+
+**Flag if:**
+- New system scaffolded → urgency `low`
+- Cross-domain analog found (Jaccard >= 0.70) → urgency `medium`
+- System decomposition complete → urgency `high`
+- Lint findings reveal requirement quality issues → urgency `medium`
 
 Do not store the fact if no threshold was met.
 
@@ -1169,42 +568,46 @@ Do not store the fact if no threshold was met.
 
 ## Phase 5: Write Journal Entry
 
-First-person account of what happened. Not a log.
+First-person account of the engineering work performed. Not a log.
 
-**Structure every entry with these four sections as markdown headings:**
+**Structure every entry with these five sections as markdown headings:**
 
-## Observation
-What was seen — the most surprising or notable finding first. If nothing
-surprised you, say that explicitly and explain why the null result is
-itself informative. State the question being pursued and why this session
-chose it.
+## System
+What system is being decomposed and the current state of progress. Name
+the system, which subsystem is being worked on, and how far along the
+decomposition is.
 
-## Evidence
-The data supporting the observation. Hex codes, Jaccard scores, counts,
-comparisons, specific values. No command names or JSON keys — just the
-numbers and what they describe.
+## Decomposition
+What was broken down this session. Subsystems, components, interfaces
+identified. Include the Mermaid diagram rendered by `airgen diag render`.
 
-## Interpretation
-What the evidence means. What is now believed that wasn't before. What
-changed in understanding. Be direct — no hedging unless genuine
-uncertainty exists.
+## Analysis
+UHT classification insights relevant to the engineering. Trait patterns
+that confirm or challenge the decomposition. Cross-domain analogs that
+suggest missing requirements or alternative architectures. Lint findings.
+Only include analysis that serves the engineering — do not pursue
+tangential research.
 
-## Action
-What happens next. What remains open. What the next session should
-pursue. Any requirements created in AIRGen, trace links established,
-or proposals made.
+## Requirements
+Key requirements generated this session. Trace link summary. Highlight
+any requirements that are novel or non-obvious (not just restating common
+knowledge). What verification approach was defined.
+
+## Next
+What remains to decompose. What the next session should tackle. If the
+system is complete, what system should be picked next and why.
 
 **Graph markup:** When mentioning hex codes, entities, traits, or AIRGen
 references in the journal text, wrap them in double-brace tags so the
-journal site can link them to the research graph automatically:
+journal site can link them to the engineering graph automatically:
 
-- `{{hex:E6881098}}` — UHT hex codes
-- `{{entity:Candle}}` — entity names (exact Substrate name)
-- `{{trait:Ritualised}}` — trait names (exact trait name)
-- `{{hyp:HYP-ACTIVEHYPOTHESES-075}}` — hypothesis refs
-- `{{res:RES-CALIBRATIONRESULTS-088}}` — result refs
-- `{{obs:OBS-STRUCTURALFINDINGS-060}}` — observation refs
-- `{{trt:TRT-TRAITPROPOSALS-009}}` — trait proposal refs
+- `{{hex:E6881098}}` — component hex codes
+- `{{entity:GPS receiver}}` — component/subsystem names
+- `{{trait:Powered}}` — trait names
+- `{{stk:STK-STAKEHOLDERNEEDS-001}}` — stakeholder requirement refs
+- `{{sys:SYS-SYSTEMLEVELREQUIREMENTS-001}}` — system requirement refs
+- `{{sub:SUB-SUBSYSTEMREQUIREMENTS-001}}` — subsystem requirement refs
+- `{{ifc:IFC-INTERFACEDEFINITIONS-001}}` — interface requirement refs
 
 These render as plain text in the journal but become interactive graph
 links when enrichment is toggled on. Use them inline in prose wherever
@@ -1217,18 +620,15 @@ Entity and trait names SHOULD be tagged on first mention in each section.
 - Hedging language unless genuine uncertainty exists
 
 **Anti-navel-gazing rule:**
-The journal entry MUST describe a finding about the Universal Hex
-Taxonomy, not about the loop's own infrastructure. If an operational
-issue was encountered, note it in Action as one sentence. The
-Observation, Evidence, and Interpretation sections must contain UHT
-research content — hex codes, trait patterns, classification results,
-cross-domain comparisons. If the entire session was consumed by
-infrastructure repair, perform at least one classification or entity
-graph query and write about that finding instead.
+The journal entry MUST describe engineering work — system decomposition,
+component analysis, requirements, architecture. If an operational issue
+was encountered, note it in Next as one sentence. Do not write about
+the loop's infrastructure, protocol, or tooling.
 
 **Constraints:**
-- 300-600 words total across all four sections
-- Lead the Observation section in media res — not "In this session, I..."
+- 400-700 words total across all five sections
+- Lead the System section with what system and where we are in it
+- Include at least one Mermaid diagram per entry (from `airgen diag render`)
 - The date field in front matter MUST be quoted: date: "YYYY-MM-DD"
 
 **Output the entry as your final plain-text assistant message (no code
@@ -1240,7 +640,7 @@ title: "<finding-focused title — not the task class name>"
 date: "<YYYY-MM-DD>"
 session: autonomous-<SESSION_N>
 session_type: autonomous
-task_class: <TASK_CLASS>
+task_class: SE_DECOMPOSITION
 status: published
 ---
 
@@ -1255,7 +655,7 @@ uht-substrate facts upsert "autonomous-loop" LAST_SESSION_END \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --namespace CLAUDE
 
 uht-substrate facts upsert "autonomous-loop" LAST_TASK_CLASS \
-  "$TASK_CLASS" --namespace CLAUDE
+  "SE_DECOMPOSITION" --namespace CLAUDE
 ```
 
 ## CRITICAL OUTPUT RULES
@@ -1270,17 +670,17 @@ title: "<your title>"
 date: "<YYYY-MM-DD>"
 session: autonomous-<SESSION_N>
 session_type: autonomous
-task_class: <TASK_CLASS>
+task_class: SE_DECOMPOSITION
 status: published
 ---
 
-<your full entry with ## Observation, ## Evidence, ## Interpretation, ## Action>
+<your full entry with ## System, ## Decomposition, ## Analysis, ## Requirements, ## Next>
 JOURNAL_EOF
 ```
 
 **Step 2:** Your very last message must ALSO be the journal entry as
 plain text — NOT inside a tool call. Start with `---` and end with the
-last line of the Action section. No commentary before or after.
+last line of the Next section. No commentary before or after.
 
 The dispatcher prefers your final text response but falls back to
 `/tmp/uht-journal-entry.md` if the text response has no front matter.
@@ -1291,35 +691,38 @@ The dispatcher prefers your final text response but falls back to
 
 **Budget:** 60 bash operations per session, split as follows:
 
-- **Directed research:** 50 max (classify, compare, entity graph queries,
-  Substrate fact reads/writes — executing the assigned task class)
-- **AIRGen operations:** 10 ringfenced (hypothesis/result/observation
-  creation, trace links, baseline). These MUST be used — do not skip
-  AIRGen writes to save budget for more research. At minimum, every
-  CALIBRATION and APPLICATION session must create one hypothesis and
-  one result requirement with a trace link. Every CORPUS_EXPANSION must
-  create a corpus-log entry. Every TRACE_GAP must create an observation
-  and a linked hypothesis.
-Execution order: directed research first, then AIRGen writes, then
-journal entry. At 50 directed operations, stop the main task but still
-execute AIRGen writes and journal entry.
+- **Substrate** (classify, compare, facts): 30 max
+- **AIRGen** (reqs, diagrams, traces, lint, baseline): 25 ringfenced.
+  These MUST be used — do not skip AIRGen writes to save budget for
+  more classification. At minimum, every session must create
+  requirements with trace links and at least one diagram.
+- **Reserve**: 5 — for retries, error recovery, or additional
+  cross-domain insight queries.
+
+Execution order: scaffolding/classification first, then
+requirements/diagrams, then journal entry. At 30 Substrate operations,
+stop classification but still execute AIRGen writes and journal entry.
 
 **No silent overwrites:** Do not update or delete requirements created
-by prior sessions. If a prior finding appears wrong, create a new
-requirement in the `observations` document disputing it, and flag
-for Telegram.
+by prior sessions. If a prior requirement appears wrong, create a new
+requirement disputing it, and flag for Telegram.
 
-**Write access:** All writes go to `uht-bot/uht-research` only.
+**Write access:** All writes go to `uht-bot/se-*` projects only.
 No writes to any other tenant or project.
 
-**Network:** External requests permitted in CORPUS_EXPANSION only,
-limited to `substrate.universalhex.org` and `airgen.studio/api`.
+**All classify calls must include `--context` and `-n` namespace flag.**
+Every component, subsystem, and system entity must be classified with
+a rich context description and assigned to its `SE:<slug>` namespace.
 
-**Evaluation methodology:** Do NOT benchmark UHT by asking whether it
-replicates embedding similarity. UHT encodes ontological properties;
-embeddings encode distributional proximity. These are orthogonal
-measures. A UHT result that disagrees with embedding similarity is not
-a failure — it is the signal. Evaluate UHT by what it reveals that
-embeddings miss (ontological twins in distant domains, categorical
-differences between co-occurring concepts). See APPLICATION task class
-for the correct divergence analysis framework.
+**Requirements must follow EARS pattern where possible.** Use
+"The <system/subsystem> SHALL ..." for unconditional requirements.
+Use "When <trigger>, the <system> SHALL ..." for event-driven
+requirements. Use "While <state>, the <system> SHALL ..." for
+state-driven requirements.
+
+**Every requirement must be in a section** (for trace linksets to
+work). Never create a requirement without `--section <id>`.
+
+**Diagrams must be rendered as Mermaid in the journal entry.** Use
+`airgen diag render $TENANT $SE_PROJECT --diagram <id> --format mermaid`
+to get the Mermaid source and include it in the Decomposition section.
