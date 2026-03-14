@@ -1204,9 +1204,19 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
   </script>
   <script is:inline>
   (function() {
-    const mermaidBlocks = document.querySelectorAll('pre[data-language="mermaid"]');
-    if (mermaidBlocks.length === 0) return;
+    var pres = document.querySelectorAll('pre[data-language="mermaid"]');
+    if (pres.length === 0) return;
 
+    // Convert Shiki blocks to native mermaid format
+    pres.forEach(function(pre) {
+      var code = pre.querySelector('code') || pre;
+      var div = document.createElement('pre');
+      div.className = 'mermaid';
+      div.textContent = code.textContent.trim();
+      pre.parentNode.replaceChild(div, pre);
+    });
+
+    // Load mermaid and render
     var s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
     s.onload = function() {
@@ -1224,20 +1234,7 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
           fontSize: '13px'
         }
       });
-      var blocks = document.querySelectorAll('pre[data-language="mermaid"]');
-      var pending = blocks.length;
-      blocks.forEach(function(pre, i) {
-        var code = pre.querySelector('code') || pre;
-        var source = code.textContent.trim();
-        window.mermaid.render('mermaid-' + i, source).then(function(result) {
-          var container = document.createElement('div');
-          container.className = 'mermaid-diagram';
-          container.innerHTML = result.svg;
-          pre.replaceWith(container);
-        }).catch(function(err) {
-          console.error('Mermaid render error:', err);
-        });
-      });
+      window.mermaid.run({ querySelector: '.mermaid' });
     };
     document.head.appendChild(s);
   })();
