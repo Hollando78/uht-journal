@@ -731,7 +731,7 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
         const matches = [];
 
         // 0. Explicit graph markup: {{type:ref}}
-        const tagRe = /\{\{(hex|entity|trait|hyp|res|obs|trt):([^}]+)\}\}/g;
+        const tagRe = /\{\{(hex|entity|trait|hyp|res|obs|trt|stk|sys|sub|ifc|arc|ver):([^}]+)\}\}/g;
         let m;
         while ((m = tagRe.exec(text)) !== null) {
           matches.push({ start: m.index, end: m.index + m[0].length, type: m[1], ref: m[2], text: m[2], tagged: true });
@@ -1151,7 +1151,7 @@ const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       const nodes = [];
       while (walker.nextNode()) nodes.push(walker.currentNode);
-      const tagRe = /\{\{(hex|entity|trait|hyp|res|obs|trt):([^}]+)\}\}/g;
+      const tagRe = /\{\{(hex|entity|trait|hyp|res|obs|trt|stk|sys|sub|ifc|arc|ver):([^}]+)\}\}/g;
       nodes.forEach(node => {
         if (!tagRe.test(node.textContent)) return;
         tagRe.lastIndex = 0;
