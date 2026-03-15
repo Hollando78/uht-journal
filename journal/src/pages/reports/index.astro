@@ -1,0 +1,142 @@
+---
+import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
+import Base from '../../layouts/Base.astro';
+
+const envVars = { ...process.env };
+try {
+  const envFile = readFileSync('/opt/uht-loop/.env', 'utf-8');
+  envFile.split('\n').forEach(line => {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) return;
+    const eq = t.indexOf('=');
+    if (eq > 0) {
+      let v = t.slice(eq + 1).trim();
+      if ((v.startsWith("'") && v.endsWith("'")) || (v.startsWith('"') && v.endsWith('"'))) v = v.slice(1, -1);
+      envVars[t.slice(0, eq)] = v;
+    }
+  });
+} catch {}
+const execOpts = { encoding: 'utf-8' as const, timeout: 15000, env: envVars };
+
+let projects: any[] = [];
+try {
+  projects = JSON.parse(
+    execSync('airgen projects list uht-bot --json', execOpts)
+  ).filter((p: any) => p.slug?.startsWith('se-'));
+} catch {}
+
+const statusMap: Record<string, string> = {};
+try {
+  const facts = JSON.parse(
+    execSync('uht-substrate facts query --predicate DECOMPOSITION_STATUS --namespace CLAUDE', execOpts)
+  );
+  (facts.facts || []).forEach((f: any) => {
+    statusMap[f.subject] = f.object;
+  });
+} catch {}
+---
+
+<Base title="System Reports">
+  <style>
+    .reports-intro {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .reports-intro h1 {
+      font-family: var(--serif);
+      font-size: 1.4rem;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .reports-intro p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .report-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      transition: border-color 0.15s ease;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .report-card:hover {
+      border-color: var(--accent-dim);
+    }
+
+    .report-card-name {
+      font-family: var(--serif);
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .report-card-stats {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .report-card-status {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 2px;
+      font-size: 0.62rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .status-complete {
+      background: rgba(90, 158, 111, 0.12);
+      color: var(--green);
+      border: 1px solid rgba(90, 158, 111, 0.2);
+    }
+
+    .status-in-progress {
+      background: rgba(107, 138, 219, 0.1);
+      color: var(--blue);
+      border: 1px solid rgba(107, 138, 219, 0.2);
+    }
+
+    .status-scaffolded {
+      background: rgba(201, 162, 77, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(201, 162, 77, 0.2);
+    }
+  </style>
+
+  <div class="reports-intro">
+    <h1>System Decomposition Reports</h1>
+    <p>Full engineering reports for each decomposed system, including requirements, diagrams, classified entities, and decomposition structure.</p>
+  </div>
+
+  <div class="report-grid">
+    {projects.map((p) => {
+      const status = statusMap[p.slug] || 'in-progress';
+      const statusClass = status === 'complete' ? 'status-complete' : status === 'scaffolded' ? 'status-scaffolded' : 'status-in-progress';
+      return (
+        <a class="report-card" href={`/reports/${p.slug}/`}>
+          <div class="report-card-name">{p.name}</div>
+          <div class="report-card-stats">{p.requirementCount} requirements</div>
+          <span class={`report-card-status ${statusClass}`}>{status}</span>
+        </a>
+      );
+    })}
+  </div>
+</Base>

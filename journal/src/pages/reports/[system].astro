@@ -1,0 +1,317 @@
+---
+import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
+import Report from '../../layouts/Report.astro';
+
+// Load env vars from .env file for CLI access
+const envVars = { ...process.env };
+try {
+  const envFile = readFileSync('/opt/uht-loop/.env', 'utf-8');
+  envFile.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const eq = trimmed.indexOf('=');
+    if (eq > 0) {
+      let val = trimmed.slice(eq + 1).trim();
+      if ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"'))) {
+        val = val.slice(1, -1);
+      }
+      envVars[trimmed.slice(0, eq)] = val;
+    }
+  });
+} catch {}
+
+const execOpts = { encoding: 'utf-8' as const, timeout: 15000, env: envVars };
+
+export async function getStaticPaths() {
+  const localEnv = { ...process.env };
+  try {
+    const ef = readFileSync('/opt/uht-loop/.env', 'utf-8');
+    ef.split('\n').forEach(line => {
+      const t = line.trim();
+      if (!t || t.startsWith('#')) return;
+      const eq = t.indexOf('=');
+      if (eq > 0) {
+        let v = t.slice(eq + 1).trim();
+        if ((v.startsWith("'") && v.endsWith("'")) || (v.startsWith('"') && v.endsWith('"'))) v = v.slice(1, -1);
+        localEnv[t.slice(0, eq)] = v;
+      }
+    });
+  } catch {}
+  let projects = [];
+  try {
+    projects = JSON.parse(
+      execSync('airgen projects list uht-bot --json', { encoding: 'utf-8', timeout: 15000, env: localEnv })
+    );
+  } catch { return []; }
+  return projects
+    .filter(p => p.slug?.startsWith('se-'))
+    .map(p => ({ params: { system: p.slug }, props: { project: p } }));
+}
+
+const { system } = Astro.params;
+const { project } = Astro.props;
+const T = 'uht-bot';
+const ns = 'SE:' + system.replace('se-', '');
+
+function run(cmd: string) {
+  try {
+    return JSON.parse(execSync(cmd, execOpts));
+  } catch { return null; }
+}
+
+function runText(cmd: string) {
+  try {
+    return execSync(cmd, execOpts).trim();
+  } catch { return ''; }
+}
+
+function sanitizeMermaid(src: string): string {
+  return src
+    .replace(/==>/g, '-->')
+    .replace(/--\*/g, '-->')
+    .replace(/--o\b/g, '-->')
+    .replace(/\\n/g, ' ')
+    .replace(/(\w+)>\["/g, '$1["')
+    .replace(/-->\|"([^"]*?)"\|/g, '-->|$1|')
+    .replace(/block-\d{13}/g, (m) => 'B' + m.slice(6, 9))
+    .replace(/[«»](?:component|subsystem|external|system|actor)[«»]\s*/g, '')
+    .replace(/\(?\["/g, '["')
+    .replace(/"\]\)?/g, '"]');
+}
+
+// Fetch data
+const reqs = run(`airgen reqs list ${T} ${system} --json --limit 500`)?.data || [];
+const diagrams = run(`airgen diag list ${T} ${system} --json`) || [];
+const nsContext = run(`uht-substrate facts namespace-context "${ns}"`) || { entities: [], facts: [] };
+const facts = nsContext.facts || [];
+const entities = nsContext.entities || [];
+
+// Render diagrams
+const mermaidDiagrams = diagrams.map((d: any) => ({
+  ...d,
+  mermaid: sanitizeMermaid(runText(`airgen diag render ${T} ${system} ${d.id} --format mermaid`))
+})).filter((d: any) => d.mermaid.length > 0);
+
+// Group requirements by document
+const docOrder = ['stakeholder-requirements', 'system-requirements', 'subsystem-requirements', 'interface-requirements', 'architecture-decisions', 'verification-plan'];
+const docLabels: Record<string, string> = {
+  'stakeholder-requirements': 'Stakeholder Requirements (STK)',
+  'system-requirements': 'System Requirements (SYS)',
+  'subsystem-requirements': 'Subsystem Requirements (SUB)',
+  'interface-requirements': 'Interface Requirements (IFC)',
+  'architecture-decisions': 'Architecture Decisions (ARC)',
+  'verification-plan': 'Verification Plan (VER)',
+};
+
+const reqsByDoc: Record<string, any[]> = {};
+reqs.forEach((r: any) => {
+  const doc = r.documentSlug || 'unassigned';
+  (reqsByDoc[doc] = reqsByDoc[doc] || []).push(r);
+});
+
+// Decomposition tree
+const partOf = facts.filter((f: any) => f.predicate === 'PART_OF');
+const connects = facts.filter((f: any) => f.predicate === 'CONNECTS');
+const produces = facts.filter((f: any) => f.predicate === 'PRODUCES');
+
+// Build tree: system -> subsystems -> components
+const systemName = project.name;
+const subsystems = partOf.filter((f: any) => f.object === systemName).map((f: any) => f.subject);
+const tree = subsystems.map((ss: string) => ({
+  name: ss,
+  hex: entities.find((e: any) => e.name === ss)?.hex_code || '',
+  children: partOf.filter((f: any) => f.object === ss).map((f: any) => ({
+    name: f.subject,
+    hex: entities.find((e: any) => e.name === f.subject)?.hex_code || '',
+  }))
+}));
+
+// Find context and decomposition diagrams
+const contextDiag = mermaidDiagrams.find((d: any) => d.name?.toLowerCase().includes('context'));
+const decompDiag = mermaidDiagrams.find((d: any) => d.name?.toLowerCase().includes('decomposition'));
+const internalDiags = mermaidDiagrams.filter((d: any) =>
+  d !== contextDiag && d !== decompDiag
+);
+
+const generatedDate = new Date().toISOString().split('T')[0];
+const totalReqs = reqs.length;
+const totalEntities = entities.length;
+const totalFacts = facts.length;
+const totalDiagrams = diagrams.length;
+---
+
+<Report title={`${systemName} — System Decomposition Report`} systemName={systemName}>
+  <h1 class="report-title">{systemName}</h1>
+  <p class="report-subtitle">
+    System Decomposition Report &mdash; Generated {generatedDate}
+    &mdash; UHT Journal / universalhex.org
+  </p>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="value">{totalReqs}</div>
+      <div class="label">Requirements</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{totalEntities}</div>
+      <div class="label">Classified Entities</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{subsystems.length}</div>
+      <div class="label">Subsystems</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{totalDiagrams}</div>
+      <div class="label">Diagrams</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{totalFacts}</div>
+      <div class="label">Relationships</div>
+    </div>
+  </div>
+
+  {contextDiag && <Fragment>
+    <h2>System Context</h2>
+    <div class="mermaid-container">
+      <pre class="mermaid-src">{contextDiag.mermaid}</pre>
+    </div>
+    <p class="diagram-caption">{contextDiag.name}</p>
+  </Fragment>}
+
+  {decompDiag && <Fragment>
+    <h2>System Decomposition</h2>
+    <div class="mermaid-container">
+      <pre class="mermaid-src">{decompDiag.mermaid}</pre>
+    </div>
+    <p class="diagram-caption">{decompDiag.name}</p>
+  </Fragment>}
+
+  {tree.length > 0 && <Fragment>
+    <h2>Decomposition Tree</h2>
+    <ul class="decomp-tree">
+      <li>
+        <span class="node-name">{systemName}</span>
+        <span class="node-hex">{entities.find((e: any) => e.name === systemName)?.hex_code || ''}</span>
+        <ul>
+          {tree.map((ss: any) => (
+            <li>
+              <span class="node-name">{ss.name}</span>
+              {ss.hex && <span class="node-hex">{ss.hex}</span>}
+              {ss.children.length > 0 && (
+                <ul>
+                  {ss.children.map((c: any) => (
+                    <li>
+                      <span class="node-name">{c.name}</span>
+                      {c.hex && <span class="node-hex">{c.hex}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      </li>
+    </ul>
+  </Fragment>}
+
+  {docOrder.map((docSlug) => {
+    const docReqs = reqsByDoc[docSlug];
+    if (!docReqs || docReqs.length === 0) return null;
+    return (
+      <Fragment>
+        <h2>{docLabels[docSlug] || docSlug}</h2>
+        <table class="req-table">
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Requirement</th>
+              <th>Tags</th>
+            </tr>
+          </thead>
+          <tbody>
+            {docReqs.map((r: any) => (
+              <tr>
+                <td class="req-ref">{r.ref}</td>
+                <td>{r.text}</td>
+                <td class="req-tags">{(r.tags || []).join(', ')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Fragment>
+    );
+  })}
+
+  {internalDiags.length > 0 && <Fragment>
+    <h2>Internal Diagrams</h2>
+    {internalDiags.map((d: any) => (
+      <Fragment>
+        <div class="mermaid-container">
+          <pre class="mermaid-src">{d.mermaid}</pre>
+        </div>
+        <p class="diagram-caption">{d.name}</p>
+      </Fragment>
+    ))}
+  </Fragment>}
+
+  <h2>Classified Entities</h2>
+  <table class="entity-table">
+    <thead>
+      <tr>
+        <th>Entity</th>
+        <th>Hex Code</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {entities.sort((a: any, b: any) => a.name.localeCompare(b.name)).map((e: any) => (
+        <tr>
+          <td style="font-weight:500; color:var(--text-bright)">{e.name}</td>
+          <td class="hex-code">{e.hex_code}</td>
+          <td style="font-size:0.72rem; color:var(--text-muted)">{e.description || ''}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  {(partOf.length > 0 || connects.length > 0 || produces.length > 0) && (
+    <h2>Decomposition Relationships</h2>
+  )}
+
+  {partOf.length > 0 && <Fragment>
+    <h3>Part-Of</h3>
+    <table class="fact-table">
+      <thead><tr><th>Component</th><th>Belongs To</th></tr></thead>
+      <tbody>
+        {partOf.map((f: any) => (
+          <tr><td>{f.subject}</td><td>{f.object}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  </Fragment>}
+
+  {connects.length > 0 && <Fragment>
+    <h3>Connections</h3>
+    <table class="fact-table">
+      <thead><tr><th>From</th><th>To</th></tr></thead>
+      <tbody>
+        {connects.map((f: any) => (
+          <tr><td>{f.subject}</td><td>{f.object}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  </Fragment>}
+
+  {produces.length > 0 && <Fragment>
+    <h3>Produces</h3>
+    <table class="fact-table">
+      <thead><tr><th>Component</th><th>Output</th></tr></thead>
+      <tbody>
+        {produces.map((f: any) => (
+          <tr><td>{f.subject}</td><td>{f.object}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  </Fragment>}
+</Report>
