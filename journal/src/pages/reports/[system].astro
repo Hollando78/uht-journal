@@ -67,17 +67,26 @@ function runText(cmd: string) {
 }
 
 function sanitizeMermaid(src: string): string {
-  return src
+  // Build unique short IDs from long block IDs
+  const idMap = new Map<string, string>();
+  let counter = 0;
+  const withShortIds = src.replace(/block-\d{10,}/g, (m) => {
+    if (!idMap.has(m)) idMap.set(m, 'N' + (counter++));
+    return idMap.get(m)!;
+  });
+  return withShortIds
     .replace(/==>/g, '-->')
     .replace(/--\*/g, '-->')
     .replace(/--o\b/g, '-->')
     .replace(/\\n/g, ' ')
-    .replace(/(\w+)>\["/g, '$1["')
     .replace(/-->\|"([^"]*?)"\|/g, '-->|$1|')
-    .replace(/block-\d{13}/g, (m) => 'B' + m.slice(6, 9))
     .replace(/[«»](?:component|subsystem|external|system|actor)[«»]\s*/g, '')
-    .replace(/\(?\["/g, '["')
-    .replace(/"\]\)?/g, '"]');
+    // Fix shape syntax: id>"label"] or id>["label"] or id(["label"]) → id["label"]
+    .replace(/(\w+)>"([^"]*?)"\]/g, '$1["$2"]')
+    .replace(/(\w+)>\["([^"]*?)"\]/g, '$1["$2"]')
+    .replace(/(\w+)\(\["([^"]*?)"\]\)/g, '$1["$2"]')
+    // Remove style lines (they reference old IDs and break rendering)
+    .split('\n').filter(l => !l.trim().startsWith('style ')).join('\n');
 }
 
 // Fetch data
