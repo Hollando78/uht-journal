@@ -77,7 +77,7 @@ Each task class now has its own journal section structure:
 ## Implications
 
 1. From session 190 onward, no system can be marked complete without passing QC and validation.
-2. The earth observation satellite (currently in progress) will be the first system to go through the full pipeline.
+2. The Naval Combat Management System (currently in progress) will be the first system to go through the full pipeline.
 3. Previously completed systems (autonomous vehicle, hospital patient monitoring) are not retroactively reviewed.
 4. New projects will have shorter, cleaner requirement refs.
 5. Protocol version is now 6.2.
