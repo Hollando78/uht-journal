@@ -219,10 +219,14 @@ If `$DIRECTIVE` contains `PAUSE`, write a minimal journal entry and exit.
 
 1. **Operator-queued system** — if `$DECOMP_TARGET` is non-empty, use
    that system. Consume the fact after reading.
-2. **Continue current system** — if `$SE_PROJECT` is non-empty and
-   `$DECOMP_STATUS` is not `complete`, continue decomposing the
-   current system.
-3. **Pick a new system autonomously** — no active project or current
+2. **QC review due** — if `$DECOMP_STATUS` is `first-pass-complete`,
+   run an **SE_QC** session (Flow C below).
+3. **Validation due** — if `$DECOMP_STATUS` is `qc-reviewed`,
+   run an **SE_VALIDATION** session (Flow D below).
+4. **Continue decomposition** — if `$SE_PROJECT` is non-empty and
+   `$DECOMP_STATUS` is `scaffolded` or `in-progress`, continue
+   decomposing (Flow B).
+5. **Pick a new system autonomously** — no active project or current
    system is complete.
 
 ### Autonomous system selection
@@ -345,12 +349,12 @@ airgen docs create $TENANT $P --name "Verification Plan" --code VER --descriptio
 **3. Create sections (one per document):**
 
 ```bash
-airgen docs sections create $TENANT $P stakeholder-requirements --title "Stakeholder Needs"
-airgen docs sections create $TENANT $P system-requirements --title "System-Level Requirements"
-airgen docs sections create $TENANT $P subsystem-requirements --title "Subsystem Requirements"
-airgen docs sections create $TENANT $P interface-requirements --title "Interface Definitions"
-airgen docs sections create $TENANT $P architecture-decisions --title "Architecture Decisions"
-airgen docs sections create $TENANT $P verification-plan --title "Verification Methods"
+airgen docs sections create $TENANT $P stakeholder-requirements --title "Needs"
+airgen docs sections create $TENANT $P system-requirements --title "Reqs"
+airgen docs sections create $TENANT $P subsystem-requirements --title "Reqs"
+airgen docs sections create $TENANT $P interface-requirements --title "Defs"
+airgen docs sections create $TENANT $P architecture-decisions --title "Decisions"
+airgen docs sections create $TENANT $P verification-plan --title "Methods"
 ```
 
 **4. Create trace linksets:**
@@ -599,36 +603,152 @@ uht-substrate entities find-similar "<most interesting component>" --min-traits 
 If a cross-domain analog suggests missing requirements, interfaces,
 or failure modes, add them.
 
-**9. Completion assessment:**
+**9. First-pass completion assessment:**
 
-A system is complete when ALL of the following are true:
-- Every subsystem has been decomposed into components
-- Every subsystem has requirements traced to system requirements
-- Cross-subsystem interfaces are defined
-- Every requirement has at least one trace link (no orphans)
-- Lint has no unaddressed high-severity findings
-- Components marked NEEDS_DECOMPOSITION have been decomposed
-- Verification entries exist for critical requirements
+The first pass is complete when ALL subsystems have been decomposed
+into components with requirements and interfaces. Do NOT mark
+first-pass-complete just because every subsystem has been visited —
+check that each has components, requirements, and interfaces defined.
 
-Do NOT mark a system complete just because every subsystem has been
-visited once. Quality matters more than coverage speed.
+When all subsystems are covered:
+```bash
+uht-substrate facts upsert "se-$SYSTEM_SLUG" DECOMPOSITION_STATUS "first-pass-complete" --namespace CLAUDE
+```
+
+Do NOT mark `complete` — the system must pass QC and validation first.
+If decomposition is not yet finished, leave status as-is.
+
+**10. Create baseline:**
 
 ```bash
-# Only when ALL completion criteria are met:
+airgen bl create $TENANT $SE_PROJECT --label "DECOMP-$(date +%Y-%m-%d)"
+```
+
+---
+
+### Flow C: QC Review (DECOMPOSITION_STATUS = first-pass-complete)
+
+Use this flow when all subsystems have been decomposed and the system
+needs quality review. This is an inward-looking review — does the work
+meet engineering standards? Task class: `SE_QC`.
+
+**1. Load the full project:**
+
+```bash
+airgen reqs list $TENANT $SE_PROJECT --json --limit 500 2>/dev/null | jq '.data // []' > /tmp/se_reqs.json
+airgen diag list $TENANT $SE_PROJECT 2>/dev/null
+uht-substrate facts query -n "$SE_NAMESPACE" --limit 200 2>/dev/null | jq '.facts // []' > /tmp/se_facts.json
+uht-substrate facts namespace-context "$SE_NAMESPACE" 2>/dev/null > /tmp/se_context.json
+```
+
+**2. Run quality tools:**
+
+```bash
+airgen lint $TENANT $SE_PROJECT --format text
+airgen reports orphans $TENANT $SE_PROJECT
+airgen reports stats $TENANT $SE_PROJECT
+```
+
+**3. Review every requirement for:**
+- **Testability** — does it have measurable acceptance criteria?
+  Bad: "The system SHALL be reliable." Good: "The system SHALL achieve
+  MTBF >= 10,000 hours."
+- **Ambiguity** — flag words: appropriate, sufficient, adequate,
+  reasonable, normal, timely, user-friendly, robust, flexible
+- **Completeness** — missing performance values, missing units,
+  missing conditions (EARS "When"/"While" triggers)
+- **Duplicates** — requirements that say the same thing in different
+  words (check by comparing text similarity across the full set)
+- **Traceability** — every SUB/IFC requirement should trace to a SYS
+  requirement; every SYS should trace to an STK requirement
+
+**4. Review decomposition for:**
+- Missing interfaces (components that interact but have no IFC req)
+- Components that should be further decomposed (complex, multi-function)
+- Subsystems with suspiciously uniform component counts
+- Facts in Substrate with no corresponding AIRGen requirements
+
+**5. Fix issues found:**
+- Create new requirements to replace ambiguous ones (tag old as
+  `superseded-by-session-$SESSION_N`)
+- Add missing interface requirements and trace links
+- Add missing verification entries for critical requirements
+- Link orphaned requirements
+- Mark complex components with NEEDS_DECOMPOSITION if warranted
+
+**6. Update status:**
+
+```bash
+uht-substrate facts upsert "se-$SYSTEM_SLUG" DECOMPOSITION_STATUS "qc-reviewed" --namespace CLAUDE
+airgen bl create $TENANT $SE_PROJECT --label "QC-$(date +%Y-%m-%d)"
+```
+
+---
+
+### Flow D: Validation (DECOMPOSITION_STATUS = qc-reviewed)
+
+Use this flow after QC has been completed. This is an outward-looking
+review — does the decomposition accurately represent the real system?
+Task class: `SE_VALIDATION`.
+
+**1. Load project and assess overall state:**
+
+```bash
+airgen reqs list $TENANT $SE_PROJECT --json --limit 500 2>/dev/null | jq '.data // []' > /tmp/se_reqs.json
+airgen reports stats $TENANT $SE_PROJECT
+airgen reports orphans $TENANT $SE_PROJECT
+uht-substrate facts namespace-context "$SE_NAMESPACE" 2>/dev/null > /tmp/se_context.json
+```
+
+**2. Validate each subsystem against real-world engineering:**
+- Are these the right components for this subsystem in a real system?
+- Are there real-world components that are missing?
+- Do the requirements cover the actual operating envelope?
+- Are safety-critical requirements identified and appropriately traced?
+- Are interface protocols realistic (correct bus types, data rates,
+  message formats for this domain)?
+- Are performance values in the right ballpark for this class of system?
+
+**3. Validate system-level completeness:**
+- Do the stakeholder requirements cover all real stakeholders?
+- Are there system-level requirements that no subsystem addresses?
+- Are cross-subsystem interfaces complete?
+- Is the verification plan adequate for the system's criticality level?
+
+**4. Cross-domain validation:**
+
+```bash
+# Check key components for analogs that might reveal missing requirements
+uht-substrate entities find-similar "<critical component>" --min-traits 15 --limit 10
+```
+
+If a cross-domain analog from a more mature domain (e.g., aerospace,
+nuclear) has requirements that this system lacks, add them.
+
+**5. Address gaps:**
+- Add missing components and classify them
+- Add missing requirements with trace links
+- Add missing interfaces
+- Fix unrealistic performance values
+
+**6. Verdict:**
+
+If validation passes (no critical gaps remaining):
+```bash
 uht-substrate facts upsert "se-$SYSTEM_SLUG" DECOMPOSITION_STATUS "complete" --namespace CLAUDE
 uht-substrate facts store "autonomous-loop" COMPLETED_SYSTEMS "se-$SYSTEM_SLUG" --namespace CLAUDE
 # Clear current project
 uht-substrate facts delete <CURRENT_SE_PROJECT fact uuid>
 uht-substrate facts delete <CURRENT_SE_SYSTEM fact uuid>
 uht-substrate facts delete <CURRENT_SE_NAMESPACE fact uuid>
+airgen bl create $TENANT $SE_PROJECT --label "VALIDATED-$(date +%Y-%m-%d)"
 ```
 
-If the system is not yet complete, leave `DECOMPOSITION_STATUS` as-is.
-
-**10. Create baseline:**
-
+If validation fails (critical gaps found):
 ```bash
-airgen bl create $TENANT $SE_PROJECT --label "DECOMP-$(date +%Y-%m-%d)"
+# Send back for more decomposition work
+uht-substrate facts upsert "se-$SYSTEM_SLUG" DECOMPOSITION_STATUS "first-pass-complete" --namespace CLAUDE
+uht-substrate facts upsert "se-$SYSTEM_SLUG" VALIDATION_NOTES "<what needs fixing>" --namespace CLAUDE
 ```
 
 ---
@@ -646,7 +766,10 @@ uht-substrate facts upsert "telegram-notify" PENDING_NOTIFICATION \
 **Flag if:**
 - New system scaffolded → urgency `low`
 - Cross-domain analog found (Jaccard >= 0.70) → urgency `medium`
-- System decomposition complete → urgency `high`
+- First-pass decomposition complete → urgency `medium`
+- QC review complete → urgency `medium`
+- System validated and complete → urgency `high`
+- Validation failed (sent back for rework) → urgency `high`
 - Lint findings reveal requirement quality issues → urgency `medium`
 
 Do not store the fact if no threshold was met.
@@ -657,32 +780,63 @@ Do not store the fact if no threshold was met.
 
 First-person account of the engineering work performed. Not a log.
 
-**Structure every entry with these five sections as markdown headings:**
+**Section structure depends on task class:**
+
+### SE_DECOMPOSITION entries:
 
 ## System
-What system is being decomposed and the current state of progress. Name
-the system, which subsystem is being worked on, and how far along the
-decomposition is.
+What system, which subsystem, progress state.
 
 ## Decomposition
-What was broken down this session. Subsystems, components, interfaces
-identified. Include the Mermaid diagram rendered by `airgen diag render`.
+What was broken down. Include Mermaid diagram.
 
 ## Analysis
-UHT classification insights relevant to the engineering. Trait patterns
-that confirm or challenge the decomposition. Cross-domain analogs that
-suggest missing requirements or alternative architectures. Lint findings.
-Only include analysis that serves the engineering — do not pursue
-tangential research.
+UHT classification insights relevant to the engineering. Cross-domain
+analogs. Lint findings. Only analysis that serves the engineering.
 
 ## Requirements
-Key requirements generated this session. Trace link summary. Highlight
-any requirements that are novel or non-obvious (not just restating common
-knowledge). What verification approach was defined.
+Key requirements generated. Trace links. Verification approach.
 
 ## Next
-What remains to decompose. What the next session should tackle. If the
-system is complete, what system should be picked next and why.
+What remains. What the next session should tackle.
+
+### SE_QC entries:
+
+## System
+Which system, QC session scope, overall project statistics.
+
+## Findings
+Requirement quality issues, missing interfaces, decomposition gaps,
+trace coverage, lint results. Quantify: "12/85 requirements lack
+measurable criteria", not "some requirements are vague".
+
+## Corrections
+What was fixed — rewritten requirements, added interfaces, new trace
+links, verification entries. Reference specific refs.
+
+## Residual
+What remains unfixed and why (budget, needs engineering judgement, etc.)
+
+## Next
+Ready for validation, or needs another QC pass.
+
+### SE_VALIDATION entries:
+
+## System
+Which system, validation scope.
+
+## Assessment
+Overall quality. What's strong, what's weak. Compare against real-world
+expectations for this class of system.
+
+## Gaps
+Missing components, unrealistic requirements, coverage holes.
+
+## Additions
+What was added to address gaps.
+
+## Verdict
+Pass (→ complete) or fail (→ back to first-pass-complete with notes).
 
 **Graph markup:** When mentioning hex codes, entities, traits, or AIRGen
 references in the journal text, wrap them in double-brace tags so the
@@ -691,10 +845,10 @@ journal site can link them to the engineering graph automatically:
 - `{{hex:E6881098}}` — component hex codes
 - `{{entity:GPS receiver}}` — component/subsystem names
 - `{{trait:Powered}}` — trait names
-- `{{stk:STK-STAKEHOLDERNEEDS-001}}` — stakeholder requirement refs
-- `{{sys:SYS-SYSTEMLEVELREQUIREMENTS-001}}` — system requirement refs
-- `{{sub:SUB-SUBSYSTEMREQUIREMENTS-001}}` — subsystem requirement refs
-- `{{ifc:IFC-INTERFACEDEFINITIONS-001}}` — interface requirement refs
+- `{{stk:STK-NEEDS-001}}` — stakeholder requirement refs
+- `{{sys:SYS-REQS-001}}` — system requirement refs
+- `{{sub:SUB-REQS-001}}` — subsystem requirement refs
+- `{{ifc:IFC-DEFS-001}}` — interface requirement refs
 
 These render as plain text in the journal but become interactive graph
 links when enrichment is toggled on. Use them inline in prose wherever
@@ -727,11 +881,12 @@ title: "<finding-focused title — not the task class name>"
 date: "<YYYY-MM-DD>"
 session: autonomous-<SESSION_N>
 session_type: autonomous
-task_class: SE_DECOMPOSITION
+task_class: <SE_DECOMPOSITION|SE_QC|SE_VALIDATION>
 status: published
 ---
 
 Write the full entry text with ## headings after the front matter.
+Use the section structure matching your task class (see above).
 
 ---
 
@@ -742,7 +897,7 @@ uht-substrate facts upsert "autonomous-loop" LAST_SESSION_END \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --namespace CLAUDE
 
 uht-substrate facts upsert "autonomous-loop" LAST_TASK_CLASS \
-  "SE_DECOMPOSITION" --namespace CLAUDE
+  "$TASK_CLASS" --namespace CLAUDE
 ```
 
 ## CRITICAL OUTPUT RULES
@@ -757,11 +912,11 @@ title: "<your title>"
 date: "<YYYY-MM-DD>"
 session: autonomous-<SESSION_N>
 session_type: autonomous
-task_class: SE_DECOMPOSITION
+task_class: <SE_DECOMPOSITION|SE_QC|SE_VALIDATION>
 status: published
 ---
 
-<your full entry with ## System, ## Decomposition, ## Analysis, ## Requirements, ## Next>
+<your full entry with section headings matching your task class>
 JOURNAL_EOF
 ```
 

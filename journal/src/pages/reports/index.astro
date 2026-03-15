@@ -119,6 +119,18 @@ try {
       color: var(--accent);
       border: 1px solid rgba(201, 162, 77, 0.2);
     }
+
+    .status-first-pass-complete {
+      background: rgba(201, 162, 77, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(201, 162, 77, 0.3);
+    }
+
+    .status-qc-reviewed {
+      background: rgba(107, 138, 219, 0.1);
+      color: var(--blue);
+      border: 1px solid rgba(107, 138, 219, 0.2);
+    }
   </style>
 
   <div class="reports-intro">
@@ -129,7 +141,11 @@ try {
   <div class="report-grid">
     {projects.map((p) => {
       const status = statusMap[p.slug] || 'in-progress';
-      const statusClass = status === 'complete' ? 'status-complete' : status === 'scaffolded' ? 'status-scaffolded' : 'status-in-progress';
+      const statusClass = status === 'complete' ? 'status-complete'
+        : status === 'qc-reviewed' ? 'status-qc-reviewed'
+        : status === 'first-pass-complete' ? 'status-first-pass-complete'
+        : status === 'scaffolded' ? 'status-scaffolded'
+        : 'status-in-progress';
       return (
         <a class="report-card" href={`/reports/${p.slug}/`}>
           <div class="report-card-name">{p.name}</div>
