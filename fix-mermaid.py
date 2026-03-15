@@ -19,10 +19,14 @@ def fix_mermaid(text):
     result = []
     in_mermaid = False
     changed = False
+    block_id_map = {}
+    block_id_counter = 0
 
     for line in lines:
         if line.strip() == '```mermaid':
             in_mermaid = True
+            block_id_map = {}
+            block_id_counter = 0
             result.append(line)
             continue
 
@@ -50,27 +54,42 @@ def fix_mermaid(text):
 
             original = line
 
-            # Fix edge label quotes: -->|"text"| becomes -->|text|
-            line = re.sub(r'-->\|"([^"]*?)"\|', r'-->|\1|', line)
-
-            # Fix ==> to -->
+            # Fix connectors first (before edge label fix)
             line = re.sub(r'==>', '-->', line)
-
-            # Fix --* and --o to -->
             line = re.sub(r'--\*', '-->', line)
             line = re.sub(r'--o\b', '-->', line)
+
+            # Fix edge label quotes: -->|"text"| becomes -->|text|
+            line = re.sub(r'-->\|"([^"]*?)"\|', r'-->|\1|', line)
 
             # Fix \n in labels (literal backslash-n)
             line = re.sub(r'\\n', ' ', line)
 
-            # Fix > shape syntax: id>"label"] becomes id["label"]
+            # Fix > shape syntax: id>"label"] or id>["label"] becomes id["label"]
+            line = re.sub(r'(\w+)>"', r'\1["', line)
             line = re.sub(r'(\w+)>\["', r'\1["', line)
 
-            # Replace long block IDs (block-1773507844558) with short IDs
-            line = re.sub(r'block-\d{13}', lambda m: 'B' + m.group()[6:9], line)
+            # Fix stadium shape: id(["label"]) becomes id["label"]
+            line = re.sub(r'(\w+)\(\["', r'\1["', line)
+            line = re.sub(r'"\]\)', '"]', line)
+
+            # Replace long block IDs with unique short IDs
+            def _replace_block_id(m):
+                nonlocal block_id_counter
+                bid = m.group()
+                if bid not in block_id_map:
+                    block_id_map[bid] = f'N{block_id_counter}'
+                    block_id_counter += 1
+                return block_id_map[bid]
+            line = re.sub(r'block-\d{10,}', _replace_block_id, line)
 
             # Remove «component» «subsystem» «external» «system» prefixes in labels
             line = re.sub(r'[«»](?:component|subsystem|external|system|actor)[«»]\s*', '', line)
+
+            # Remove style lines (reference stale IDs, break rendering)
+            if line.strip().startswith('style '):
+                changed = True
+                continue
 
             if line != original:
                 changed = True
@@ -87,10 +106,66 @@ def fix_mermaid(text):
     return '\n'.join(result), changed
 
 
+def fix_mermaid_source(src):
+    """Sanitize raw mermaid source (not a markdown file).
+    Applies all line-level fixes without the unclosed-fence detection
+    (which is only relevant for journal markdown files).
+    """
+    id_map = {}
+    id_counter = 0
+    result = []
+
+    for line in src.split('\n'):
+        # Skip style lines and empty markers
+        if line.strip().startswith('style ') or line.strip().startswith('Empty diagram'):
+            continue
+
+        # Fix connectors
+        line = re.sub(r'==>', '-->', line)
+        line = re.sub(r'--\*', '-->', line)
+        line = re.sub(r'--o\b', '-->', line)
+
+        # Fix edge label quotes
+        line = re.sub(r'-->\|"([^"]*?)"\|', r'-->|\1|', line)
+
+        # Fix \n in labels
+        line = re.sub(r'\\n', ' ', line)
+
+        # Fix > shape syntax
+        line = re.sub(r'(\w+)>"', r'\1["', line)
+        line = re.sub(r'(\w+)>\["', r'\1["', line)
+
+        # Fix stadium shape
+        line = re.sub(r'(\w+)\(\["', r'\1["', line)
+        line = re.sub(r'"\]\)', '"]', line)
+
+        # Replace long block IDs with unique short IDs
+        def _replace_id(m):
+            nonlocal id_counter
+            bid = m.group()
+            if bid not in id_map:
+                id_map[bid] = f'N{id_counter}'
+                id_counter += 1
+            return id_map[bid]
+        line = re.sub(r'block-\d{10,}', _replace_id, line)
+
+        # Remove stereotype labels
+        line = re.sub(r'[«»](?:component|subsystem|external|system|actor)[«»]\s*', '', line)
+
+        result.append(line)
+
+    return '\n'.join(result)
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: fix-mermaid.py <file.md>", file=sys.stderr)
+        print("Usage: fix-mermaid.py <file.md> OR fix-mermaid.py --source <mermaid-source>", file=sys.stderr)
         sys.exit(1)
+
+    if sys.argv[1] == '--source':
+        src = sys.stdin.read()
+        print(fix_mermaid_source(src))
+        sys.exit(0)
 
     filepath = sys.argv[1]
     with open(filepath) as f:

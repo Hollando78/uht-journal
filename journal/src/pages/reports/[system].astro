@@ -1,6 +1,6 @@
 ---
 import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import Report from '../../layouts/Report.astro';
 
 // Load env vars from .env file for CLI access
@@ -67,26 +67,18 @@ function runText(cmd: string) {
 }
 
 function sanitizeMermaid(src: string): string {
-  // Build unique short IDs from long block IDs
-  const idMap = new Map<string, string>();
-  let counter = 0;
-  const withShortIds = src.replace(/block-\d{10,}/g, (m) => {
-    if (!idMap.has(m)) idMap.set(m, 'N' + (counter++));
-    return idMap.get(m)!;
-  });
-  return withShortIds
-    .replace(/==>/g, '-->')
-    .replace(/--\*/g, '-->')
-    .replace(/--o\b/g, '-->')
-    .replace(/\\n/g, ' ')
-    .replace(/-->\|"([^"]*?)"\|/g, '-->|$1|')
-    .replace(/[«»](?:component|subsystem|external|system|actor)[«»]\s*/g, '')
-    // Fix shape syntax: id>"label"] or id>["label"] or id(["label"]) → id["label"]
-    .replace(/(\w+)>"([^"]*?)"\]/g, '$1["$2"]')
-    .replace(/(\w+)>\["([^"]*?)"\]/g, '$1["$2"]')
-    .replace(/(\w+)\(\["([^"]*?)"\]\)/g, '$1["$2"]')
-    // Remove style lines (they reference old IDs and break rendering)
-    .split('\n').filter(l => !l.trim().startsWith('style ')).join('\n');
+  try {
+    writeFileSync('/tmp/mermaid-sanitize-input.txt', src);
+    return execSync('python3 /opt/uht-loop/fix-mermaid.py --source < /tmp/mermaid-sanitize-input.txt', {
+      encoding: 'utf-8',
+      timeout: 5000,
+      env: envVars,
+      shell: '/bin/bash',
+    }).trim();
+  } catch (e: any) {
+    console.error('Mermaid sanitize failed:', e.stderr?.toString() || e.message);
+    return src;
+  }
 }
 
 // Fetch data
@@ -97,10 +89,18 @@ const facts = nsContext.facts || [];
 const entities = nsContext.entities || [];
 
 // Render diagrams
-const mermaidDiagrams = diagrams.map((d: any) => ({
-  ...d,
-  mermaid: sanitizeMermaid(runText(`airgen diag render ${T} ${system} ${d.id} --format mermaid`))
-})).filter((d: any) => d.mermaid.length > 0);
+const mermaidDiagrams = diagrams.map((d: any) => {
+  const raw = runText(`airgen diag render ${T} ${system} ${d.id} --format mermaid`);
+  const sanitized = sanitizeMermaid(raw);
+  if (raw && raw !== sanitized) {
+    console.log(`[REPORT] Sanitized diagram ${d.id}: ${raw.length} -> ${sanitized.length} chars`);
+  } else if (raw && raw === sanitized) {
+    console.log(`[REPORT] Diagram ${d.id}: no changes needed (${raw.length} chars)`);
+  } else {
+    console.log(`[REPORT] Diagram ${d.id}: empty raw output`);
+  }
+  return { ...d, mermaid: sanitized };
+}).filter((d: any) => d.mermaid.length > 0);
 
 // Group requirements by document
 const docOrder = ['stakeholder-requirements', 'system-requirements', 'subsystem-requirements', 'interface-requirements', 'architecture-decisions', 'verification-plan'];
