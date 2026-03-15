@@ -1,7 +1,7 @@
 # Autonomous Session Protocol — Systems Engineering decomposition loop
 # Executed via: claude --print "$(cat session_protocol.md)"
 # CLIs required: airgen-cli, uht-substrate
-# SESSION_PROTOCOL_VERSION: 6.1
+# SESSION_PROTOCOL_VERSION: 6.2
 
 ---
 
