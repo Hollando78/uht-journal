@@ -265,7 +265,7 @@ COMPLETED=$(uht-substrate facts query --predicate COMPLETED_SYSTEMS \
 When the seed list is exhausted and the bot proposes its own system, it must be:
 - A real, recognisable engineered system (not abstract)
 - Different domain from any completed system
-- Complex enough for 4+ subsystems
+- Complex enough for a meaningful decomposition
 
 ```bash
 uht-substrate facts upsert "autonomous-loop" CURRENT_TASK_CLASS \
@@ -276,14 +276,45 @@ uht-substrate facts upsert "autonomous-loop" CURRENT_TASK_CLASS \
 
 ## Phase 3: Execute Decomposition
 
+### Engineering principles (apply to ALL steps below)
+
+**Realism over symmetry.** The number of subsystems, components,
+requirements, and interfaces must reflect the actual engineered system,
+not a template. A wind turbine pitch controller has 3 components; a
+naval CMS has 15+ subsystems. If you find yourself producing the same
+count for every system, you are templating, not engineering.
+
+**Depth follows complexity.** A safety-critical subsystem may need
+sub-components decomposed further; a simple power bus does not.
+Decomposition is recursive — if a component is itself a system (has
+internal interfaces, multiple functions, independent failure modes),
+decompose it. If a component is a single device or algorithm, stop.
+
+**Risk and criticality drive priority.** Decompose the highest-risk,
+most architecturally significant subsystem first — not the
+alphabetically first or least-touched one. The subsystem with the most
+interfaces, the tightest performance constraints, or the highest safety
+integrity level should be addressed before simple utility subsystems.
+
+**Context descriptions must be specific.** Do NOT write generic
+"1-2 sentence" descriptions. Every `--context` argument must include:
+the component's operating environment, its key inputs/outputs,
+performance constraints, and what makes it distinct from similar
+components. Example: "Multi-constellation GNSS receiver with RTK
+corrections, receiving L1/L5 signals from GPS, Galileo, and GLONASS.
+Provides <10cm position accuracy at 10Hz for autonomous vehicle
+localisation in urban canyons with heavy multipath."
+
+**Budget is flexible within the total.** The 60-operation budget is a
+ceiling, not a split. A scaffolding session may use 40 AIRGen ops and
+20 Substrate ops. A deep classification session may reverse that ratio.
+Spend the budget where the engineering needs it.
+
 ---
 
 ### Flow A: New System (no existing SE_PROJECT)
 
-Use this flow when starting a fresh system decomposition — either from
-the seed list, an operator-queued target, or an autonomously selected
-system. This flow scaffolds the full project, creates initial
-requirements, and stores project state.
+Use this flow when starting a fresh system decomposition.
 
 **1. Create AIRGen project:**
 
@@ -293,7 +324,11 @@ SYSTEM_SLUG="<system-slug>"  # lowercase, hyphenated
 airgen projects create $TENANT --name "$SYSTEM_NAME" --key "se-$SYSTEM_SLUG" --slug "se-$SYSTEM_SLUG" --description "UHT-backed system decomposition: $SYSTEM_NAME"
 ```
 
-**2. Create 6 documents:**
+**2. Create documents:**
+
+Start with the 6 standard documents. If the system warrants additional
+documents (e.g., hazard analysis for safety-critical systems, concept
+of operations for complex systems), create them.
 
 ```bash
 P="se-$SYSTEM_SLUG"
@@ -303,6 +338,8 @@ airgen docs create $TENANT $P --name "Subsystem Requirements" --code SUB --descr
 airgen docs create $TENANT $P --name "Interface Requirements" --code IFC --description "Interface definitions between components"
 airgen docs create $TENANT $P --name "Architecture Decisions" --code ARC --description "Design rationale and trade-offs"
 airgen docs create $TENANT $P --name "Verification Plan" --code VER --description "Verification approach for each requirement"
+# Add system-specific documents if needed:
+# airgen docs create $TENANT $P --name "Hazard Analysis" --code HAZ --description "Safety hazard identification and mitigation"
 ```
 
 **3. Create sections (one per document):**
@@ -336,7 +373,7 @@ uht-substrate namespaces create "SE:$SYSTEM_SLUG" "$SYSTEM_NAME"
 
 ```bash
 uht-substrate classify "$SYSTEM_NAME" \
-  --context "<1-2 sentence description of the system>" \
+  --context "<detailed description: purpose, operating environment, key constraints, scale, domain>" \
   -n "SE:$SYSTEM_SLUG"
 ```
 
@@ -349,22 +386,24 @@ DIAG_ID=$(echo "$DIAG_JSON" | jq -r '.diagram.id // empty')
 # Create system block
 airgen diag blocks create $TENANT $P --diagram $DIAG_ID --name "$SYSTEM_NAME" --kind system
 
-# Create external actor blocks (identify 3-5 actors)
+# Create external actor/system blocks — as many as the real system interacts with
 airgen diag blocks create $TENANT $P --diagram $DIAG_ID --name "<Actor>" --kind actor
-# Create connectors between system and actors
 airgen diag connectors create $TENANT $P --diagram $DIAG_ID --source <system-block-id> --target <actor-block-id> --kind flow --label "<data/control flow>"
 ```
 
-**8. Decompose into 4-7 subsystems:**
+**8. Decompose into subsystems:**
+
+Identify the real subsystems of the real system. The count is driven by
+the system's architecture, not a protocol target. Consider:
+- What are the major functional groupings?
+- What would be separate contracts or separate teams in a real programme?
+- What has independent failure modes?
+- What has distinct physical or logical boundaries?
 
 For each subsystem:
-- Classify in Substrate with `--context` and `-n "SE:$SYSTEM_SLUG"`
-- Store `"<Subsystem>" PART_OF "$SYSTEM_NAME"` fact in namespace
-- Add as subsystem block in decomposition diagram
-
 ```bash
 uht-substrate classify "<Subsystem>" \
-  --context "<1-2 sentence description of the subsystem's role>" \
+  --context "<specific description: function, key interfaces, performance envelope, technology base>" \
   -n "SE:$SYSTEM_SLUG"
 
 uht-substrate facts store "<Subsystem>" PART_OF "$SYSTEM_NAME" -n "SE:$SYSTEM_SLUG"
@@ -375,13 +414,16 @@ uht-substrate facts store "<Subsystem>" PART_OF "$SYSTEM_NAME" -n "SE:$SYSTEM_SL
 ```bash
 DECOMP_JSON=$(airgen diag create $TENANT $P --name "$SYSTEM_NAME — Decomposition" --view block --description "Subsystem decomposition" 2>&1)
 DECOMP_ID=$(echo "$DECOMP_JSON" | jq -r '.diagram.id // empty')
-# Add system block and subsystem blocks with composition connectors
 ```
 
-**10. Generate stakeholder requirements (5-8):**
+**10. Generate stakeholder requirements:**
+
+Derive from the system's real stakeholder needs. Different systems have
+different stakeholders — a military system has operators, maintainers,
+and a procurement authority; a medical device has clinicians, patients,
+and regulators. Write as many requirements as the system demands.
 
 ```bash
-# Get section ID
 STK_SECTION=$(airgen docs get $TENANT $P stakeholder-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
 
 airgen reqs create $TENANT $P \
@@ -391,7 +433,12 @@ airgen reqs create $TENANT $P \
   --tags stakeholder,session-$SESSION_N
 ```
 
-**11. Generate system-level requirements (8-15):**
+**11. Generate system-level requirements:**
+
+Derive from stakeholder requirements. Each system requirement must
+trace to at least one stakeholder requirement. Include performance,
+safety, reliability, interface, and environmental requirements as
+the system demands — not a fixed set.
 
 ```bash
 SYS_SECTION=$(airgen docs get $TENANT $P system-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
@@ -403,7 +450,6 @@ SYS_JSON=$(airgen reqs create $TENANT $P \
   --tags system,session-$SESSION_N 2>&1)
 SYS_REF=$(echo "$SYS_JSON" | jq -r '.requirement.ref // empty')
 
-# Trace to stakeholder requirement
 airgen trace create $TENANT $P \
   --source "uht-bot:$P:$STK_REF" \
   --target "uht-bot:$P:$SYS_REF" --type derives
@@ -429,37 +475,58 @@ airgen bl create $TENANT $P --label "SCAFFOLD-$(date +%Y-%m-%d)"
 ### Flow B: Continuing System (SE_PROJECT exists)
 
 Use this flow when an SE project already exists and decomposition is
-in progress. This flow deepens the decomposition by breaking down
-subsystems into components, adding requirements, interfaces, and
-verification entries.
+in progress. A session may work on one subsystem in depth, multiple
+simple subsystems, or revisit a previously decomposed subsystem to
+add missing interfaces or deeper component decomposition. Let the
+engineering drive the scope, not a one-subsystem-per-session template.
 
-**1. Load project state and identify progress:**
+**1. Load project state and assess progress:**
 
 ```bash
-# List existing subsystem requirements to find decomposed subsystems
-airgen reqs filter $TENANT $SE_PROJECT --document subsystem-requirements --json --limit 100 2>/dev/null > /tmp/sub_reqs.json
+# Requirements by document
+airgen reqs list $TENANT $SE_PROJECT --json --limit 200 2>/dev/null | jq '.data // []' > /tmp/se_reqs.json
 
-# List diagrams to see which subsystems have internal diagrams
+# Diagrams
 airgen diag list $TENANT $SE_PROJECT 2>/dev/null
 
-# Query facts for PART_OF relationships
+# Decomposition structure
 uht-substrate facts query -p PART_OF -n "$SE_NAMESPACE" 2>/dev/null | jq '.facts // []'
+
+# Interfaces
+uht-substrate facts query -p CONNECTS -n "$SE_NAMESPACE" 2>/dev/null | jq '.facts // []'
 ```
 
-**2. Identify the least-decomposed subsystem** — the one with fewest
-or zero subsystem requirements. Focus the session on that subsystem.
+**2. Choose what to work on based on engineering priority:**
 
-**3. Decompose subsystem into 3-6 components:**
+Do NOT simply pick "the least-decomposed subsystem." Instead, consider:
+- Which subsystem has the highest risk or safety criticality?
+- Which subsystem has the most unresolved interfaces with others?
+- Are there components that need further decomposition (sub-components)?
+- Are there cross-subsystem interfaces not yet defined?
+- Did lint flag issues that need addressing?
+- Can two simple subsystems be done in one session?
 
-For each component:
+If a subsystem is complex enough to warrant multiple sessions, that is
+correct — do not rush through it to maintain even pacing.
+
+**3. Decompose subsystem into components:**
+
+Identify the real components. Some subsystems have 2 components; others
+have 10. If a component is itself complex (has internal interfaces,
+multiple functions, independent failure modes), it may need its own
+decomposition in a later session — store a fact marking it for deeper
+work:
 
 ```bash
 uht-substrate classify "<Component>" \
-  --context "<description of component within subsystem context>" \
+  --context "<specific: what it does, key I/O, technology, constraints, performance>" \
   -n "$SE_NAMESPACE"
 
 uht-substrate facts store "<Component>" PART_OF "<Subsystem>" -n "$SE_NAMESPACE"
 uht-substrate facts store "<Component>" PRODUCES "<output>" -n "$SE_NAMESPACE"
+
+# If component needs deeper decomposition in a future session:
+uht-substrate facts store "<Component>" NEEDS_DECOMPOSITION "true" -n "$SE_NAMESPACE"
 ```
 
 **4. Create internal block diagram for the subsystem:**
@@ -469,10 +536,14 @@ INT_JSON=$(airgen diag create $TENANT $SE_PROJECT \
   --name "<Subsystem> — Internal" --view internal \
   --description "Internal component diagram for <Subsystem>" 2>&1)
 INT_ID=$(echo "$INT_JSON" | jq -r '.diagram.id // empty')
-# Add component blocks and connectors
 ```
 
-**5. Generate subsystem requirements (5-10):**
+**5. Generate subsystem requirements:**
+
+Write requirements driven by the subsystem's engineering needs. Include
+performance, interface, safety, and reliability requirements as
+appropriate. Do NOT generate a fixed number. A sensor array might need
+15 requirements; a simple relay module might need 3.
 
 ```bash
 SUB_SECTION=$(airgen docs get $TENANT $SE_PROJECT subsystem-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
@@ -484,13 +555,17 @@ SUB_JSON=$(airgen reqs create $TENANT $SE_PROJECT \
   --tags subsystem,<subsystem-tag>,session-$SESSION_N 2>&1)
 SUB_REF=$(echo "$SUB_JSON" | jq -r '.requirement.ref // empty')
 
-# Trace to parent system requirement
 airgen trace create $TENANT $SE_PROJECT \
   --source "uht-bot:$SE_PROJECT:$PARENT_SYS_REF" \
   --target "uht-bot:$SE_PROJECT:$SUB_REF" --type derives
 ```
 
-**6. Define interfaces between components (2-4):**
+**6. Define interfaces:**
+
+Interfaces exist wherever data, power, control signals, or physical
+connections cross a component boundary. Define all real interfaces,
+not a fixed quota. Include protocol, data rate, latency, and format
+where relevant.
 
 ```bash
 IFC_SECTION=$(airgen docs get $TENANT $SE_PROJECT interface-requirements --json 2>/dev/null | jq -r '.document.sections[0].id // empty')
@@ -504,12 +579,16 @@ airgen reqs create $TENANT $SE_PROJECT \
 uht-substrate facts store "<Component A>" CONNECTS "<Component B>" -n "$SE_NAMESPACE"
 ```
 
-**7. Quality check:**
+**7. Quality gate (mandatory before marking complete):**
 
 ```bash
 airgen lint $TENANT $SE_PROJECT --format text
 airgen reports orphans $TENANT $SE_PROJECT
 ```
+
+Review lint findings. If lint reports medium or high severity issues,
+address them before marking the system complete. Orphaned requirements
+(no trace links) must be linked or justified.
 
 **8. Cross-domain insight (if budget remains):**
 
@@ -517,26 +596,34 @@ airgen reports orphans $TENANT $SE_PROJECT
 uht-substrate entities find-similar "<most interesting component>" --min-traits 15 --limit 5
 ```
 
-If a cross-domain analog is found (Jaccard >= 0.70), note it in the
-journal. If the analog suggests missing requirements or interfaces,
-add them.
+If a cross-domain analog suggests missing requirements, interfaces,
+or failure modes, add them.
 
-**9. Update decomposition status:**
+**9. Completion assessment:**
+
+A system is complete when ALL of the following are true:
+- Every subsystem has been decomposed into components
+- Every subsystem has requirements traced to system requirements
+- Cross-subsystem interfaces are defined
+- Every requirement has at least one trace link (no orphans)
+- Lint has no unaddressed high-severity findings
+- Components marked NEEDS_DECOMPOSITION have been decomposed
+- Verification entries exist for critical requirements
+
+Do NOT mark a system complete just because every subsystem has been
+visited once. Quality matters more than coverage speed.
 
 ```bash
-# Check if all subsystems have been decomposed
-# If yes:
+# Only when ALL completion criteria are met:
 uht-substrate facts upsert "se-$SYSTEM_SLUG" DECOMPOSITION_STATUS "complete" --namespace CLAUDE
-# Store in completed list
 uht-substrate facts store "autonomous-loop" COMPLETED_SYSTEMS "se-$SYSTEM_SLUG" --namespace CLAUDE
-# Clear current project (next session picks a new system)
+# Clear current project
 uht-substrate facts delete <CURRENT_SE_PROJECT fact uuid>
 uht-substrate facts delete <CURRENT_SE_SYSTEM fact uuid>
 uht-substrate facts delete <CURRENT_SE_NAMESPACE fact uuid>
 ```
 
-If the system is not yet fully decomposed, leave `DECOMPOSITION_STATUS`
-as-is and do not clear the current project facts.
+If the system is not yet complete, leave `DECOMPOSITION_STATUS` as-is.
 
 **10. Create baseline:**
 
@@ -689,19 +776,15 @@ The dispatcher prefers your final text response but falls back to
 
 ## Hard Constraints
 
-**Budget:** 60 bash operations per session, split as follows:
+**Budget:** 60 bash operations per session. No fixed split between
+Substrate and AIRGen — spend the budget where the engineering needs it.
+A scaffolding session may be 80% AIRGen; a deep classification session
+may be 80% Substrate. The only hard rule: every session MUST produce
+at least one diagram or requirement update in AIRGen (do not spend the
+entire budget on classification with nothing written to the project).
 
-- **Substrate** (classify, compare, facts): 30 max
-- **AIRGen** (reqs, diagrams, traces, lint, baseline): 25 ringfenced.
-  These MUST be used — do not skip AIRGen writes to save budget for
-  more classification. At minimum, every session must create
-  requirements with trace links and at least one diagram.
-- **Reserve**: 5 — for retries, error recovery, or additional
-  cross-domain insight queries.
-
-Execution order: scaffolding/classification first, then
-requirements/diagrams, then journal entry. At 30 Substrate operations,
-stop classification but still execute AIRGen writes and journal entry.
+Execution order: assess state first, then work on the highest-priority
+engineering task, then journal entry.
 
 **No silent overwrites:** Do not update or delete requirements created
 by prior sessions. If a prior requirement appears wrong, create a new
