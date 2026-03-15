@@ -88,19 +88,20 @@ const nsContext = run(`uht-substrate facts namespace-context "${ns}"`) || { enti
 const facts = nsContext.facts || [];
 const entities = nsContext.entities || [];
 
-// Render diagrams
-const mermaidDiagrams = diagrams.map((d: any) => {
+// Render diagrams, filter empty/bad, deduplicate by name (keep last)
+const allRendered = diagrams.map((d: any) => {
   const raw = runText(`airgen diag render ${T} ${system} ${d.id} --format mermaid`);
-  const sanitized = sanitizeMermaid(raw);
-  if (raw && raw !== sanitized) {
-    console.log(`[REPORT] Sanitized diagram ${d.id}: ${raw.length} -> ${sanitized.length} chars`);
-  } else if (raw && raw === sanitized) {
-    console.log(`[REPORT] Diagram ${d.id}: no changes needed (${raw.length} chars)`);
-  } else {
-    console.log(`[REPORT] Diagram ${d.id}: empty raw output`);
-  }
-  return { ...d, mermaid: sanitized };
-}).filter((d: any) => d.mermaid.length > 0);
+  return { ...d, mermaid: sanitizeMermaid(raw) };
+}).filter((d: any) =>
+  d.mermaid.length > 10
+  && !d.mermaid.includes('Test Block')
+  && !d.mermaid.includes('Empty diagram')
+);
+
+// Deduplicate by name — keep the last (most recent) version
+const diagByName = new Map<string, any>();
+allRendered.forEach((d: any) => diagByName.set(d.name, d));
+const mermaidDiagrams = Array.from(diagByName.values());
 
 // Group requirements by document
 const docOrder = ['stakeholder-requirements', 'system-requirements', 'subsystem-requirements', 'interface-requirements', 'architecture-decisions', 'verification-plan'];
